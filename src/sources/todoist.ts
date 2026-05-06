@@ -1,7 +1,7 @@
 import type { TodoistConfig } from '../config.js';
 import { request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, DateRange, FetchContext, OpenItem, SourceResult } from '../types.js';
 
 interface TodoistProject {
   id: string;
@@ -98,7 +98,34 @@ export async function fetchTodoist(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'todoist', activities };
+
+  const open = await fetchTodoistOpen(headers, projectIds, ctx);
+  return { source: 'todoist', activities, open };
+}
+
+async function fetchTodoistOpen(
+  headers: Record<string, string>,
+  projectIds: string[],
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  try {
+    const tasks = await request<TodoistTask[]>(`${REST_BASE}/tasks`, { headers });
+    const projectFilter = projectIds.length ? new Set(projectIds) : null;
+    return tasks
+      .filter((t) => !projectFilter || projectFilter.has(t.project_id))
+      .map((t) => ({
+        source: 'todoist' as const,
+        type: 'open-task',
+        title: t.content,
+        url: `https://todoist.com/showTask?id=${t.id}`,
+        status: t.due?.date ? `due ${t.due.date}` : undefined,
+        updated: t.created_at,
+        details: { project_id: t.project_id, priority: t.priority },
+      }));
+  } catch (err) {
+    ctx.warn('todoist: open tasks fetch failed', err);
+    return [];
+  }
 }
 
 async function resolveProjectIds(

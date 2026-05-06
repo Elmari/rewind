@@ -2,9 +2,17 @@ import { format } from 'date-fns';
 import type { SourceResult } from '../types.js';
 
 const MAX_PER_SOURCE = 60;
+const MAX_OPEN_PER_SOURCE = 30;
 
-export function condenseForLlm(results: SourceResult[]): string {
-  const blocks: string[] = [];
+export interface CondensedInput {
+  activities: string;
+  openItems: string;
+  hasActivities: boolean;
+  hasOpen: boolean;
+}
+
+export function condenseForLlm(results: SourceResult[]): CondensedInput {
+  const activityBlocks: string[] = [];
   for (const r of results) {
     if (r.activities.length === 0) continue;
     const lines: string[] = [];
@@ -16,9 +24,31 @@ export function condenseForLlm(results: SourceResult[]): string {
     if (r.activities.length > MAX_PER_SOURCE) {
       lines.push(`- (… ${r.activities.length - MAX_PER_SOURCE} weitere ${r.source}-Einträge ausgelassen)`);
     }
-    blocks.push(lines.join('\n'));
+    activityBlocks.push(lines.join('\n'));
   }
-  return blocks.join('\n\n');
+
+  const openBlocks: string[] = [];
+  for (const r of results) {
+    const open = r.open ?? [];
+    if (open.length === 0) continue;
+    const lines: string[] = [];
+    lines.push(`## ${r.source}`);
+    for (const o of open.slice(0, MAX_OPEN_PER_SOURCE)) {
+      const status = o.status ? ` [${o.status}]` : '';
+      lines.push(`- [${o.type}] ${o.title}${status}`);
+    }
+    if (open.length > MAX_OPEN_PER_SOURCE) {
+      lines.push(`- (… ${open.length - MAX_OPEN_PER_SOURCE} weitere ${r.source}-Einträge ausgelassen)`);
+    }
+    openBlocks.push(lines.join('\n'));
+  }
+
+  return {
+    activities: activityBlocks.join('\n\n'),
+    openItems: openBlocks.join('\n\n'),
+    hasActivities: activityBlocks.length > 0,
+    hasOpen: openBlocks.length > 0,
+  };
 }
 
 function detailSuffix(details: Record<string, unknown> | undefined): string {

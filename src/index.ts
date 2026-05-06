@@ -162,11 +162,11 @@ async function runMain(opts: MainOpts): Promise<void> {
     }
     const apiKey = readEnvSecret(cfg.llm.api_key_env);
     const condensed = condenseForLlm(results);
-    if (!condensed.trim()) {
+    if (!condensed.hasActivities && !condensed.hasOpen) {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;
     } else {
-      const prompt = buildPrompt(range, results, cfg.llm.prompt_language, condensed);
+      const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed);
       const llmStart = Date.now();
       const summary = await spinner('asking Gemini', () => summarize(prompt, cfg.llm!, apiKey));
       llmSeconds = (Date.now() - llmStart) / 1000;

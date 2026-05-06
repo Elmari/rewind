@@ -37,6 +37,26 @@ export function renderMarkdownBody(_range: DateRange, results: SourceResult[]): 
     }
     lines.push('');
   }
+
+  const openLines: string[] = [];
+  for (const r of results) {
+    const open = r.open ?? [];
+    if (open.length === 0) continue;
+    const label = SOURCE_LABELS[r.source] ?? r.source;
+    openLines.push(`### ${label}`);
+    for (const o of open) {
+      const title = o.url ? `[${o.title}](${o.url})` : o.title;
+      const status = o.status ? ` *(${o.status})*` : '';
+      openLines.push(`- ${typeLabel(o.type)} — ${title}${status}`);
+    }
+    openLines.push('');
+  }
+  if (openLines.length) {
+    lines.push('## Aktuell offen');
+    lines.push('');
+    lines.push(...openLines);
+  }
+
   return lines.join('\n');
 }
 
@@ -67,6 +87,12 @@ function typeLabel(t: string): string {
     case 'task-completed': return 'Task ✓';
     case 'task-created': return 'Task (neu)';
     case 'issue-closed': return 'Issue (zu)';
+    case 'open-issue': return 'Ticket';
+    case 'open-pr-mine': return 'PR (mein)';
+    case 'open-pr-review': return 'PR-Review nötig';
+    case 'open-mr-mine': return 'MR (mein)';
+    case 'open-mr-review': return 'MR-Review nötig';
+    case 'open-task': return 'Task';
     default: return t;
   }
 }

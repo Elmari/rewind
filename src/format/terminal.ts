@@ -51,7 +51,32 @@ export function renderTerminal(range: DateRange, results: SourceResult[]): strin
     lines.push('');
   }
 
-  lines.push(footer(`${total} Aktivitäten · ${activeSources} Quellen`));
+  let openTotal = 0;
+  const openLines: string[] = [];
+  for (const r of results) {
+    const open = r.open ?? [];
+    if (open.length === 0) continue;
+    const label = SOURCE_LABELS[r.source] ?? r.source;
+    const emoji = SOURCE_EMOJI[r.source] ?? '·';
+    const color = SOURCE_COLOR[r.source] ?? c.gray;
+    openTotal += open.length;
+    openLines.push(`  ${emoji} ${color(c.bold(label))} ${c.dim(`(${open.length})`)}`);
+    for (const o of open) {
+      const title = o.title.length > 90 ? o.title.slice(0, 87) + '…' : o.title;
+      const status = o.status ? c.dim(` [${o.status}]`) : '';
+      openLines.push(`     ${title}${status}`);
+    }
+    openLines.push('');
+  }
+  if (openLines.length) {
+    lines.push(`  ${c.bold(c.yellow('— Aktuell offen —'))}`);
+    lines.push('');
+    lines.push(...openLines);
+  }
+
+  lines.push(
+    footer(`${total} Aktivitäten · ${activeSources} Quellen${openTotal ? ` · ${openTotal} offen` : ''}`),
+  );
   return lines.join('\n');
 }
 
@@ -64,14 +89,25 @@ export function renderTerminalSummary(
 ): string {
   const lines: string[] = [];
   lines.push(banner('rewind', range.label));
-  for (const line of llmText.split('\n')) {
-    lines.push(line.startsWith('-') ? `  ${c.cyan('•')}${line.slice(1)}` : `  ${line}`);
+  for (const raw of llmText.split('\n')) {
+    if (/^aktuell offen|^currently open/i.test(raw.trim())) {
+      lines.push('');
+      lines.push(`  ${c.bold(c.yellow('— ' + raw.trim().replace(/:$/, '') + ' —'))}`);
+      lines.push('');
+    } else if (raw.startsWith('-')) {
+      lines.push(`  ${c.cyan('•')}${raw.slice(1)}`);
+    } else {
+      lines.push(`  ${raw}`);
+    }
   }
   lines.push('');
   const total = results.reduce((n, r) => n + r.activities.length, 0);
-  const sources = results.filter((r) => r.activities.length > 0).length;
+  const open = results.reduce((n, r) => n + (r.open?.length ?? 0), 0);
+  const sources = results.filter((r) => r.activities.length > 0 || (r.open?.length ?? 0) > 0).length;
   lines.push(
-    footer(`${total} Aktivitäten · ${sources} Quellen · fetch ${fetchSeconds.toFixed(1)}s · llm ${llmSeconds.toFixed(1)}s`),
+    footer(
+      `${total} Aktivitäten · ${open} offen · ${sources} Quellen · fetch ${fetchSeconds.toFixed(1)}s · llm ${llmSeconds.toFixed(1)}s`,
+    ),
   );
   return lines.join('\n');
 }

@@ -1,7 +1,7 @@
 import type { GithubConfig } from '../config.js';
 import { request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, DateRange, FetchContext, OpenItem, SourceResult } from '../types.js';
 
 interface GhUser {
   login: string;
@@ -51,7 +51,61 @@ export async function fetchGithub(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'github', activities };
+
+  const open = await fetchGithubOpen(apiBase, headers, username, cfg.ignored_authors, ctx);
+  return { source: 'github', activities, open };
+}
+
+interface GhSearchIssuesResponse {
+  items: Array<{
+    number: number;
+    title: string;
+    html_url: string;
+    repository_url: string;
+    state: string;
+    updated_at: string;
+    user: { login: string };
+    pull_request?: unknown;
+  }>;
+}
+
+async function fetchGithubOpen(
+  apiBase: string,
+  headers: Record<string, string>,
+  username: string,
+  ignoredAuthors: string[],
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  const ignored = new Set(ignoredAuthors.map((a) => a.toLowerCase()));
+  const out: OpenItem[] = [];
+  const cases: Array<{ role: 'mine' | 'review'; q: string }> = [
+    { role: 'mine', q: `is:open is:pr author:${username}` },
+    { role: 'review', q: `is:open is:pr review-requested:${username}` },
+  ];
+  for (const { role, q } of cases) {
+    try {
+      const res = await request<GhSearchIssuesResponse>(`${apiBase}/search/issues`, {
+        headers,
+        query: { q, per_page: 30 },
+      });
+      for (const item of res.items) {
+        if (ignored.has(item.user.login.toLowerCase())) continue;
+        const repo = item.repository_url.replace(/^.*\/repos\//, '');
+        out.push({
+          source: 'github',
+          type: role === 'mine' ? 'open-pr-mine' : 'open-pr-review',
+          title: `${repo} #${item.number}: ${item.title}`,
+          url: item.html_url,
+          status: role === 'mine' ? 'open' : 'awaits my review',
+          updated: item.updated_at,
+          details: { repo, number: item.number, author: item.user.login },
+        });
+      }
+    } catch (err) {
+      ctx.warn(`github: open-pr fetch (${role}) failed`, err);
+    }
+  }
+  return out;
 }
 
 async function fetchEvents(

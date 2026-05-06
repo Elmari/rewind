@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import type { GitlabConfig } from '../config.js';
 import { bearer, request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, DateRange, FetchContext, OpenItem, SourceResult } from '../types.js';
 
 interface GlUser {
   id: number;
@@ -40,6 +40,7 @@ interface GlMergeRequest {
   closed_at: string | null;
   web_url: string;
   author: { id: number; username: string };
+  references?: { full?: string };
 }
 
 export async function fetchGitlab(
@@ -129,7 +130,43 @@ export async function fetchGitlab(
   }
 
   const out = [...dedup.values()].sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'gitlab', activities: out };
+
+  const open = await fetchGitlabOpen(cfg, headers, me.id, ctx);
+  return { source: 'gitlab', activities: out, open };
+}
+
+async function fetchGitlabOpen(
+  cfg: GitlabConfig,
+  headers: Record<string, string>,
+  userId: number,
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  const ignored = new Set(cfg.ignored_authors.map((a) => a.toLowerCase()));
+  const out: OpenItem[] = [];
+  const cases: Array<{ role: 'mine' | 'review'; query: Record<string, string | number> }> = [
+    { role: 'mine', query: { state: 'opened', author_id: userId, scope: 'all', per_page: 50 } },
+    { role: 'review', query: { state: 'opened', reviewer_id: userId, scope: 'all', per_page: 50 } },
+  ];
+  for (const { role, query } of cases) {
+    try {
+      const mrs = await request<GlMergeRequest[]>(`${cfg.base_url}/api/v4/merge_requests`, { headers, query });
+      for (const mr of mrs) {
+        if (ignored.has(mr.author.username.toLowerCase())) continue;
+        out.push({
+          source: 'gitlab',
+          type: role === 'mine' ? 'open-mr-mine' : 'open-mr-review',
+          title: `!${mr.iid}: ${mr.title}`,
+          url: mr.web_url,
+          status: role === 'mine' ? 'open' : 'awaits my review',
+          updated: mr.updated_at,
+          details: { mrIid: mr.iid, project: mr.project_id, author: mr.author.username },
+        });
+      }
+    } catch (err) {
+      ctx.warn(`gitlab: open-MR fetch (${role}) failed`, err);
+    }
+  }
+  return out;
 }
 
 function mapEvent(ev: GlEvent, repo: string, projectUrl?: string): Activity | null {

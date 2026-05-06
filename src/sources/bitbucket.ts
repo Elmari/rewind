@@ -1,7 +1,7 @@
 import type { BitbucketConfig } from '../config.js';
 import { atlassianAuthHeader, request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, DateRange, FetchContext, OpenItem, SourceResult } from '../types.js';
 
 interface BbDashboardResponse {
   values: BbPullRequest[];
@@ -123,7 +123,44 @@ export async function fetchBitbucket(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'bitbucket', activities };
+
+  const open = await fetchBitbucketOpen(cfg, headers, ctx);
+  return { source: 'bitbucket', activities, open };
+}
+
+async function fetchBitbucketOpen(
+  cfg: BitbucketConfig,
+  headers: Record<string, string>,
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  const ignored = new Set(cfg.ignored_authors.map((a) => a.toLowerCase()));
+  const out: OpenItem[] = [];
+  for (const role of ['AUTHOR', 'REVIEWER'] as const) {
+    try {
+      const res = await request<BbDashboardResponse>(`${cfg.base_url}/rest/api/1.0/dashboard/pull-requests`, {
+        headers,
+        query: { state: 'OPEN', role, order: 'NEWEST', limit: 25 },
+      });
+      for (const pr of res.values) {
+        const authorSlug = pr.author.user.slug?.toLowerCase();
+        const authorName = pr.author.user.name?.toLowerCase();
+        if ((authorSlug && ignored.has(authorSlug)) || (authorName && ignored.has(authorName))) continue;
+        const repoFull = `${pr.toRef.repository.project.key}/${pr.toRef.repository.slug}`;
+        out.push({
+          source: 'bitbucket',
+          type: role === 'AUTHOR' ? 'open-pr-mine' : 'open-pr-review',
+          title: `${repoFull} #${pr.id}: ${pr.title}`,
+          url: pr.links.self?.[0]?.href,
+          status: role === 'AUTHOR' ? 'open' : 'awaits my review',
+          updated: new Date(pr.updatedDate).toISOString(),
+          details: { repo: repoFull, prId: pr.id, author: pr.author.user.slug },
+        });
+      }
+    } catch (err) {
+      ctx.warn(`bitbucket: open-pr fetch (${role}) failed`, err);
+    }
+  }
+  return out;
 }
 
 function prKey(pr: BbPullRequest): string {

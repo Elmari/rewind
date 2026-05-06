@@ -26,12 +26,14 @@ const BitbucketSchema = z.object({
   base_url: z.string().url(),
   pat_env: z.string().default('BITBUCKET_PAT'),
   auth_method: AuthMethodSchema,
+  ignored_authors: z.array(z.string()).default([]),
 });
 
 const GitlabSchema = z.object({
   enabled: z.boolean().default(true),
   base_url: z.string().url(),
   pat_env: z.string().default('GITLAB_PAT'),
+  ignored_authors: z.array(z.string()).default([]),
 });
 
 const GithubSchema = z.object({
@@ -41,6 +43,7 @@ const GithubSchema = z.object({
   pat_env: z.string().default('GITHUB_PAT'),
   username: z.string().optional(),
   repos: z.array(z.string()).default([]),
+  ignored_authors: z.array(z.string()).default([]),
 });
 
 const JenkinsSchema = z.object({
@@ -206,11 +209,17 @@ sources:
     base_url: https://bitbucket.firma.de
     pat_env: BITBUCKET_PAT
     auth_method: bearer
+    ignored_authors:                   # PRs by these users are skipped (open-list + future activity filters)
+      - renovate
+      - dependabot
 
   gitlab:
     enabled: false                     # flip on once you migrate
     base_url: https://gitlab.firma.de
     pat_env: GITLAB_PAT
+    ignored_authors:
+      - renovate-bot
+      - dependabot
 
   github:
     enabled: false
@@ -219,6 +228,9 @@ sources:
     pat_env: GITHUB_PAT
     # username: efischer               # optional; resolved from token if omitted
     repos: []                          # optional whitelist (e.g. ['owner/repo'])
+    ignored_authors:
+      - renovate[bot]
+      - dependabot[bot]
 
   git:
     enabled: true

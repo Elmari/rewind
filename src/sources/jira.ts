@@ -2,7 +2,7 @@ import { format } from 'date-fns';
 import type { JiraConfig } from '../config.js';
 import { atlassianAuthHeader, request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, DateRange, FetchContext, OpenItem, SourceResult } from '../types.js';
 
 interface JiraSearchResponse {
   issues: JiraIssue[];
@@ -118,7 +118,37 @@ export async function fetchJira(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'jira', activities };
+
+  const open = await fetchJiraOpen(cfg, authHeader, user, ctx);
+  return { source: 'jira', activities, open };
+}
+
+async function fetchJiraOpen(
+  cfg: JiraConfig,
+  authHeader: Record<string, string>,
+  user: string | undefined,
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  const userClause = user ? `assignee = "${user}"` : 'assignee = currentUser()';
+  const jql = `${userClause} AND statusCategory != Done ORDER BY updated DESC`;
+  try {
+    const search = await request<JiraSearchResponse>(`${cfg.base_url}/rest/api/2/search`, {
+      headers: { ...authHeader, accept: 'application/json' },
+      query: { jql, fields: 'summary,status,updated,project', maxResults: 30 },
+    });
+    return search.issues.map((issue) => ({
+      source: 'jira' as const,
+      type: 'open-issue',
+      title: `${issue.key}: ${issue.fields.summary}`,
+      url: `${cfg.base_url}/browse/${issue.key}`,
+      status: issue.fields.status.name,
+      updated: issue.fields.updated,
+      details: { project: issue.fields.project.key, key: issue.key },
+    }));
+  } catch (err) {
+    ctx.warn('jira: open-issue fetch failed', err);
+    return [];
+  }
 }
 
 function matchesUser(author: { name?: string; key?: string; emailAddress?: string }, user?: string): boolean {

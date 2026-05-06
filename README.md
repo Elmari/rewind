@@ -1,8 +1,8 @@
 # rewind
 
-> Was hab ich gestern eigentlich gemacht?
+> Was hab ich gestern eigentlich gemacht — und woran bin ich aktuell dran?
 
-`rewind` sammelt aus Jira, Confluence, Bitbucket, GitLab, GitHub, lokalen Git-Repos, Jenkins, Todoist, Outlook und Teams ein, woran du gestern gearbeitet hast, und lässt es von einem (Unternehmens-)Gemini zu einer Daily-Standup-tauglichen Bullet-Liste zusammenfassen.
+`rewind` sammelt aus Jira, Confluence, Bitbucket, GitLab, GitHub, lokalen Git-Repos, Jenkins, Todoist, Outlook und Teams (a) was du gestern gemacht hast und (b) was aktuell offen ist (Tickets, PRs/MRs, Tasks). Beides geht an einen (Unternehmens-)Gemini, der eine zweigeteilte Daily-Standup-Zusammenfassung erzeugt: "Gestern …" + "Aktuell offen …".
 
 Gedacht für die fünf Minuten vor dem Daily, in denen man sich sonst durch sieben Tabs klickt.
 
@@ -189,6 +189,9 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      base_url: https://bitbucket.firma.de
      pat_env: BITBUCKET_PAT
      auth_method: bearer
+     ignored_authors:                      # PRs von diesen Usern werden komplett rausgefiltert
+       - renovate                          # — typischer Bot-Spam fürs Daily ungefiltert ist Lärm
+       - dependabot
    identity:
      bitbucket_user: efischer   # oft anders als Jira-Username
    ```
@@ -213,6 +216,9 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      repos:                                  # optional: Whitelist (sonst alle)
        - owner/repo-a
        - owner/repo-b
+     ignored_authors:                        # PRs von diesen Usern rausfiltern
+       - renovate[bot]
+       - dependabot[bot]
    ```
 
 Für **GitHub Enterprise** beide URLs setzen:
@@ -235,6 +241,9 @@ web_url: https://github.firma.de
      enabled: true
      base_url: https://gitlab.firma.de
      pat_env: GITLAB_PAT
+     ignored_authors:                        # MRs von diesen Usern rausfiltern
+       - renovate-bot
+       - dependabot
    ```
 
 GitLab identifiziert dich automatisch über das Token (`/api/v4/user`), du musst keinen Username konfigurieren.
@@ -501,14 +510,19 @@ Mit `defaults.weekend_skip: false` schaltest du das aus.
 
 ## Daily-Style des LLM-Outputs
 
-Der Prompt (in `src/llm/prompt.ts`) erzwingt einen knappen, ticketzentrierten Stil:
+Der Prompt (in `src/llm/prompt.ts`) erzwingt einen zweigeteilten Output:
 
+**Abschnitt 1 — "Was ich gestern gemacht habe":**
 - 3–6 Bullets, ein Bullet pro Ticket
 - Ticket-ID vorn (`PROJ-1234: …`)
 - Mehrere Commits / PR-Aktionen / Worklogs zum gleichen Ticket = ein Bullet
 - Erste Person, konkrete Verben (implementiert, gefixt, reviewed)
 - Routine-Meetings raus, substantielle Termine als eigenes Bullet
-- Keine Detail-Aufzählung von Commit-Messages oder Dateinamen
+
+**Abschnitt 2 — "Aktuell offen":**
+- 3–8 Bullets, gruppiert: eigene aktive Tickets/PRs zuerst, dann anstehende Reviews, dann Tasks
+- Wenn ein offenes Item dieselbe Ticket-ID wie ein Gestern-Bullet hat, **nicht doppelt nennen** — nur kurz weitermachen ("…, läuft weiter")
+- Hinweise auf alte unangetastete Items ("PR liegt seit 5 Tagen")
 
 Beispiel-Output:
 
@@ -517,7 +531,26 @@ Beispiel-Output:
 - PROJ-1199: Bug im Login-Redirect gefixt, gemerged.
 - PROJ-1201: PR von Anna reviewed.
 - Architektur-Abstimmung mit Backend-Team zum neuen Event-Bus.
+
+Aktuell offen:
+- PROJ-1234: Caching-Layer (In Progress) — läuft weiter.
+- PROJ-1235: Search-Bug (To Do).
+- 2 PRs warten auf mein Review (#42, #44).
+- Todoist: Spec für Migrationspfad fertigstellen.
 ```
+
+### Welche Quellen liefern offene Items?
+
+| Quelle | Was als "offen" gilt |
+|---|---|
+| Jira | Tickets mit `assignee = du AND statusCategory != Done` |
+| Bitbucket | Eigene offene PRs + PRs die auf mein Review warten |
+| GitLab | Eigene offene MRs + MRs die auf mein Review warten |
+| GitHub | Eigene offene PRs + PRs mit `review-requested:me` |
+| Todoist | Offene Tasks in den konfigurierten Projekten |
+| (andere) | Liefern aktuell keine Open-Items |
+
+**Bot-PRs ausfiltern**: Bitbucket/GitLab/GitHub haben jeweils ein `ignored_authors`-Feld (siehe Setup-Sektionen). Standardmäßig leer; gängige Werte: `renovate`, `dependabot`, `renovate-bot`, `renovate[bot]`. Damit landen Renovate-PRs nicht in der Open-Liste.
 
 ## Eigene Quelle hinzufügen
 
