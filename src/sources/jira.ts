@@ -18,6 +18,7 @@ interface JiraIssue {
     status: { name: string };
     updated: string;
     project: { key: string; name: string };
+    resolution?: { name: string };
   };
   changelog?: {
     histories: Array<{
@@ -59,7 +60,7 @@ export async function fetchJira(
     headers: { ...authHeader, accept: 'application/json' },
     query: {
       jql,
-      fields: 'summary,status,updated,project',
+      fields: 'summary,status,updated,project,resolution',
       expand: 'changelog',
       maxResults: 100,
     },
@@ -69,6 +70,7 @@ export async function fetchJira(
   const browseBase = `${cfg.base_url}/browse`;
 
   for (const issue of search.issues) {
+    const resolution = issue.fields.resolution?.name;
     activities.push({
       source: 'jira',
       type: 'issue-touched',
@@ -78,6 +80,7 @@ export async function fetchJira(
       details: {
         status: issue.fields.status.name,
         project: issue.fields.project.key,
+        ...(resolution ? { resolution } : {}),
       },
     });
 
@@ -136,17 +139,20 @@ async function fetchJiraOpen(
   try {
     const search = await request<JiraSearchResponse>(`${cfg.base_url}/rest/api/2/search`, {
       headers: { ...authHeader, accept: 'application/json' },
-      query: { jql, fields: 'summary,status,updated,project', maxResults: 30 },
+      query: { jql, fields: 'summary,status,updated,project,resolution', maxResults: 30 },
     });
-    return search.issues.map((issue) => ({
-      source: 'jira' as const,
-      type: 'open-issue',
-      title: `${issue.key}: ${issue.fields.summary}`,
-      url: `${cfg.base_url}/browse/${issue.key}`,
-      status: issue.fields.status.name,
-      updated: issue.fields.updated,
-      details: { project: issue.fields.project.key, key: issue.key },
-    }));
+    return search.issues.map((issue) => {
+      const resolution = issue.fields.resolution?.name;
+      return {
+        source: 'jira' as const,
+        type: 'open-issue',
+        title: `${issue.key}: ${issue.fields.summary}`,
+        url: `${cfg.base_url}/browse/${issue.key}`,
+        status: resolution ? `${issue.fields.status.name} (${resolution})` : issue.fields.status.name,
+        updated: issue.fields.updated,
+        details: { project: issue.fields.project.key, key: issue.key },
+      };
+    });
   } catch (err) {
     ctx.warn('jira: open-issue fetch failed', err);
     return [];

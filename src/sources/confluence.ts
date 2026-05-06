@@ -54,6 +54,15 @@ export async function fetchConfluence(
 
   for (const r of res.results) {
     const c = r.content;
+    if (!c) {
+      ctx.warn(`confluence: search result missing 'content' property: ${JSON.stringify(r).slice(0, 200)}`);
+      continue;
+    }
+    if (!c.version) {
+      ctx.warn(`confluence: content ${c.id} missing 'version' property`);
+      continue;
+    }
+
     const isCreated = c.version.number === 1;
     const url = c._links?.webui ? `${baseUrl}${c._links.webui}` : undefined;
     activities.push({

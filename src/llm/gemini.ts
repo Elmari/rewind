@@ -51,10 +51,16 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
   });
 
   if (res.promptFeedback?.blockReason) {
-    throw new Error(`Gemini blocked: ${res.promptFeedback.blockReason}`);
+    const detail = JSON.stringify(res.promptFeedback);
+    throw new Error(`Gemini blocked the prompt: ${res.promptFeedback.blockReason} (Details: ${detail})`);
   }
 
-  const text = res.candidates?.[0]?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
-  if (!text.trim()) throw new Error('Gemini returned empty response');
+  const candidate = res.candidates?.[0];
+  const text = candidate?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  
+  if (!text.trim()) {
+    const reason = candidate?.finishReason ? ` (Finish Reason: ${candidate.finishReason})` : '';
+    throw new Error(`Gemini returned an empty response${reason}. Full response: ${JSON.stringify(res)}`);
+  }
   return text.trim();
 }
