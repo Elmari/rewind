@@ -33,7 +33,7 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
     systemInstruction: { parts: [{ text: prompt.systemInstruction }] },
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 1024,
+      maxOutputTokens: 4096,
     },
   });
 
@@ -62,5 +62,11 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
     const reason = candidate?.finishReason ? ` (Finish Reason: ${candidate.finishReason})` : '';
     throw new Error(`Gemini returned an empty response${reason}. Full response: ${JSON.stringify(res)}`);
   }
+
+  // If we have text but it was cut off, we still return it but maybe add a hint
+  if (candidate?.finishReason === 'MAX_TOKENS' || candidate?.finishReason === 'OTHER') {
+    return text.trim() + '\n\n_(Warnung: Zusammenfassung wurde aufgrund von Längenbeschränkungen abgeschnitten)_';
+  }
+
   return text.trim();
 }
