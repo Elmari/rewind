@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { Config } from './config.js';
 import { atlassianAuthHeader, basic, request } from './http.js';
 import { acquireGraphToken } from './auth/msal.js';
+import { expandHome } from './path.js';
 import type { SourceName } from './types.js';
 import { SOURCE_EMOJI, banner, c, footer, isTty } from './ui.js';
 
@@ -140,8 +141,9 @@ async function pingGithub(cfg: Config): Promise<DoctorResult> {
 async function pingGit(cfg: Config): Promise<DoctorResult> {
   const c = cfg.sources.git;
   if (!c?.enabled) return { source: 'git', status: 'disabled', message: 'disabled in config' };
-  if (!existsSync(c.repos_dir)) {
-    return { source: 'git', status: 'fail', message: `repos_dir does not exist: ${c.repos_dir}` };
+  const reposDir = expandHome(c.repos_dir);
+  if (!existsSync(reposDir)) {
+    return { source: 'git', status: 'fail', message: `repos_dir does not exist: ${reposDir}` };
   }
   let count = 0;
   const walk = (dir: string, depth: number) => {
@@ -166,12 +168,12 @@ async function pingGit(cfg: Config): Promise<DoctorResult> {
       }
     }
   };
-  walk(c.repos_dir, 0);
+  walk(reposDir, 0);
   const emails = cfg.identity.git_emails;
   return {
     source: 'git',
     status: 'ok',
-    message: `${count} repos found (max_depth=${c.max_depth}, ${emails.length === 0 ? 'no email filter' : `${emails.length} email filter(s)`})`,
+    message: `${count} repos found in ${reposDir} (max_depth=${c.max_depth}, ${emails.length === 0 ? 'no email filter' : `${emails.length} email filter(s)`})`,
     identity: emails.join(', ') || '(any)',
   };
 }

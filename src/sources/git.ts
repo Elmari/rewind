@@ -2,6 +2,7 @@ import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { simpleGit } from 'simple-git';
 import type { GitConfig } from '../config.js';
+import { expandHome } from '../path.js';
 import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
 
 export async function fetchGit(
@@ -10,8 +11,9 @@ export async function fetchGit(
   identityEmails: string[],
   ctx: FetchContext,
 ): Promise<SourceResult> {
-  const repos = findRepos(cfg.repos_dir, cfg.max_depth);
-  ctx.log(`git: scanning ${repos.length} repos under ${cfg.repos_dir}`);
+  const reposDir = expandHome(cfg.repos_dir);
+  const repos = findRepos(reposDir, cfg.max_depth);
+  ctx.log(`git: scanning ${repos.length} repos under ${reposDir}`);
 
   const activities: Activity[] = [];
   for (const repo of repos) {

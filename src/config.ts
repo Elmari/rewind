@@ -234,7 +234,7 @@ sources:
 
   git:
     enabled: true
-    repos_dir: C:/Users/elias/IdeaProjects
+    repos_dir: ~/IdeaProjects          # ~/ wird auf $HOME expandiert; oder absoluter Pfad (Mac: /Users/foo/Code, Win: C:/Users/foo/Code)
     max_depth: 2
 
   jenkins:
