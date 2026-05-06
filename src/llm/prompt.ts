@@ -30,7 +30,7 @@ export function buildPrompt(
         '- Strukturiere nach Ticket: ein Bullet pro Ticket, mit Ticket-ID vorne ("PROJ-1234: …").',
         '- Mehrere Commits / PR-Aktionen / Worklogs zum selben Ticket → ein Bullet.',
         '- Erste Person, konkrete Verben (implementiert, gefixt, reviewed). Keine Floskeln.',
-        '- Wenn ein Ticket eine "Resolution" wie "Zurückgestellt" (Deferred) hat, erwähne dies explizit.',
+        '- WICHTIG: Wenn ein Ticket eine "Resolution" (Lösungsweg) hat (z. B. "Zurückgestellt", "Abgebrochen", "Duplikat"), MUSS dies im Bullet-Point erwähnt werden.',
         '',
         'Regeln "Heute":',
         '- 3–6 Bullets. Reihenfolge: laufende eigene Arbeit (offene Tickets/PRs), dann Reviews die ich machen soll, dann Termine, dann Tasks.',

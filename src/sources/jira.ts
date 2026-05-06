@@ -71,11 +71,12 @@ export async function fetchJira(
 
   for (const issue of search.issues) {
     const resolution = issue.fields.resolution?.name;
+    const resLabel = resolution ? ` [${resolution}]` : '';
     activities.push({
       source: 'jira',
       type: 'issue-touched',
       timestamp: issue.fields.updated,
-      title: `${issue.key}: ${issue.fields.summary}`,
+      title: `${issue.key}: ${issue.fields.summary}${resLabel}`,
       url: `${browseBase}/${issue.key}`,
       details: {
         status: issue.fields.status.name,
@@ -88,15 +89,25 @@ export async function fetchJira(
       if (!rangeContains(range, history.created)) continue;
       if (!matchesUser(history.author, user)) continue;
       for (const item of history.items) {
-        if (item.field !== 'status') continue;
-        activities.push({
-          source: 'jira',
-          type: 'status-transition',
-          timestamp: history.created,
-          title: `${issue.key}: ${item.fromString} → ${item.toString}`,
-          url: `${browseBase}/${issue.key}`,
-          details: { issue: issue.key, from: item.fromString, to: item.toString },
-        });
+        if (item.field === 'status') {
+          activities.push({
+            source: 'jira',
+            type: 'status-transition',
+            timestamp: history.created,
+            title: `${issue.key}: ${item.fromString} → ${item.toString}`,
+            url: `${browseBase}/${issue.key}`,
+            details: { issue: issue.key, from: item.fromString, to: item.toString },
+          });
+        } else if (item.field === 'resolution') {
+          activities.push({
+            source: 'jira',
+            type: 'status-transition', // reused type or could be custom
+            timestamp: history.created,
+            title: `${issue.key}: Resolution -> ${item.toString || 'None'}`,
+            url: `${browseBase}/${issue.key}`,
+            details: { issue: issue.key, resolution: item.toString },
+          });
+        }
       }
     }
 
