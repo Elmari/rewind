@@ -61,8 +61,13 @@ export async function fetchBitbucket(
   ctx.log(`bitbucket: ${prs.size} relevant PRs`);
 
   const activities: Activity[] = [];
+  const ignored = new Set(cfg.ignored_authors.map((a) => a.toLowerCase()));
 
   for (const pr of prs.values()) {
+    const authorSlug = pr.author.user.slug?.toLowerCase();
+    const authorName = pr.author.user.name?.toLowerCase();
+    if ((authorSlug && ignored.has(authorSlug)) || (authorName && ignored.has(authorName))) continue;
+
     const repoFull = `${pr.toRef.repository.project.key}/${pr.toRef.repository.slug}`;
     const url = pr.links.self?.[0]?.href;
     const createdIso = new Date(pr.createdDate).toISOString();
