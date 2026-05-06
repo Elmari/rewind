@@ -70,8 +70,14 @@ export async function fetchJira(
   const browseBase = `${cfg.base_url}/browse`;
 
   for (const issue of search.issues) {
-    const resolution = issue.fields.resolution?.name;
+    const rawRes = issue.fields.resolution;
+    const resolution = typeof rawRes === 'string' ? rawRes : rawRes?.name;
     const resLabel = resolution ? ` [${resolution}]` : '';
+
+    if (!resolution && issue.fields.status.name.toLowerCase() === 'done') {
+      ctx.log(`jira: issue ${issue.key} is 'Done' but has no resolution field in API response`);
+    }
+
     activities.push({
       source: 'jira',
       type: 'issue-touched',
@@ -89,8 +95,8 @@ export async function fetchJira(
       if (!rangeContains(range, history.created)) continue;
       if (!matchesUser(history.author, user)) continue;
 
-      const statusItem = history.items.find((i) => i.field === 'status');
-      const resolutionItem = history.items.find((i) => i.field === 'resolution');
+      const statusItem = history.items.find((i) => i.field.toLowerCase() === 'status');
+      const resolutionItem = history.items.find((i) => i.field.toLowerCase() === 'resolution');
 
       if (statusItem) {
         // If resolution changed in the same history entry, use it; otherwise fallback to current resolution
