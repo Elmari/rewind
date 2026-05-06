@@ -5,12 +5,21 @@ export interface RangeOptions {
   date?: string;
   since?: string;
   until?: string;
+  today?: boolean;
   weekendSkip?: boolean;
   now?: Date;
 }
 
 export function resolveRange(opts: RangeOptions): DateRange {
   const now = opts.now ?? new Date();
+
+  if (opts.today) {
+    return {
+      since: startOfDay(now),
+      until: endOfDay(now),
+      label: format(now, 'yyyy-MM-dd'),
+    };
+  }
 
   if (opts.since || opts.until) {
     const since = opts.since ? startOfDay(parseISO(opts.since)) : startOfDay(subDays(now, 1));

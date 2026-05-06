@@ -25,6 +25,7 @@ program
 
 program
   .option('--config <path>', 'config file path')
+  .option('--today', 'current day (ignore smart yesterday)')
   .option('--date <yyyy-mm-dd>', 'specific day (default: smart yesterday)')
   .option('--since <yyyy-mm-dd>', 'range start')
   .option('--until <yyyy-mm-dd>', 'range end')
@@ -101,6 +102,7 @@ program
 
 interface MainOpts {
   config?: string;
+  today: boolean;
   date?: string;
   since?: string;
   until?: string;
@@ -123,6 +125,7 @@ async function runMain(opts: MainOpts): Promise<void> {
   }
 
   const range = resolveRange({
+    today: opts.today,
     date: opts.date,
     since: opts.since,
     until: opts.until,
@@ -165,7 +168,7 @@ async function runMain(opts: MainOpts): Promise<void> {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;
     } else {
-      const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed);
+      const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed, opts.today);
       const llmStart = Date.now();
       const summary = await spinner('asking Gemini', () => summarize(prompt, cfg.llm!));
       llmSeconds = (Date.now() - llmStart) / 1000;
