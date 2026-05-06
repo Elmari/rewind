@@ -90,20 +90,21 @@ export async function fetchJira(
       if (!matchesUser(history.author, user)) continue;
       for (const item of history.items) {
         if (item.field === 'status') {
+          const resSuffix = resolution ? ` [${resolution}]` : '';
           activities.push({
             source: 'jira',
             type: 'status-transition',
             timestamp: history.created,
-            title: `${issue.key}: ${item.fromString} → ${item.toString}`,
+            title: `${issue.key}: ${item.fromString} → ${item.toString}${resSuffix}`,
             url: `${browseBase}/${issue.key}`,
             details: { issue: issue.key, from: item.fromString, to: item.toString },
           });
         } else if (item.field === 'resolution') {
           activities.push({
             source: 'jira',
-            type: 'status-transition', // reused type or could be custom
+            type: 'status-transition',
             timestamp: history.created,
-            title: `${issue.key}: Resolution -> ${item.toString || 'None'}`,
+            title: `${issue.key}: Lösungsweg -> ${item.toString || 'Keiner'}`,
             url: `${browseBase}/${issue.key}`,
             details: { issue: issue.key, resolution: item.toString },
           });
