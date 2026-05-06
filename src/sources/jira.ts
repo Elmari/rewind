@@ -47,7 +47,9 @@ export async function fetchJira(
 ): Promise<SourceResult> {
   const since = format(range.since, 'yyyy-MM-dd HH:mm');
   const until = format(range.until, 'yyyy-MM-dd HH:mm');
-  const userClause = user ? `(assignee = "${user}" OR worklogAuthor = "${user}" OR updatedBy = "${user}")` : 'updatedBy = currentUser()';
+  const userClause = user
+    ? `(assignee = "${user}" OR reporter = "${user}")`
+    : '(assignee = currentUser() OR reporter = currentUser())';
   const jql = `${userClause} AND updated >= "${since}" AND updated <= "${until}" ORDER BY updated DESC`;
 
   ctx.log(`jira: searching with JQL: ${jql}`);
