@@ -33,6 +33,7 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
     systemInstruction: { parts: [{ text: prompt.systemInstruction }] },
     generationConfig: {
       temperature: 0.3,
+      maxOutputTokens: 16384,
     },
   });
 
@@ -55,7 +56,11 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
   }
 
   const candidate = res.candidates?.[0];
-  const text = candidate?.content?.parts?.map((p) => p.text ?? '').join('') ?? '';
+  // Filter for parts that have 'text' and ignore 'thought' parts if present
+  const text = candidate?.content?.parts
+    ?.filter((p) => typeof p.text === 'string')
+    .map((p) => p.text)
+    .join('') ?? '';
   
   if (!text.trim()) {
     const reason = candidate?.finishReason ? ` (Finish Reason: ${candidate.finishReason})` : '';
