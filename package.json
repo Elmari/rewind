@@ -1,0 +1,48 @@
+{
+  "name": "rewind",
+  "version": "0.1.0",
+  "description": "Aggregates yesterday's activity from Jira, Confluence, Bitbucket, local git and Outlook, then summarizes it via Gemini for daily standup prep.",
+  "type": "module",
+  "bin": {
+    "rewind": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/index.js",
+    "test": "node --test --import tsx tests/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky && tsc"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    ".env.example"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@azure/msal-node": "^2.16.2",
+    "clipboardy": "^4.0.0",
+    "commander": "^12.1.0",
+    "date-fns": "^4.1.0",
+    "date-fns-tz": "^3.2.0",
+    "dotenv": "^16.4.5",
+    "js-yaml": "^4.1.0",
+    "pino": "^9.5.0",
+    "pino-pretty": "^11.3.0",
+    "simple-git": "^3.27.0",
+    "undici": "^6.21.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@commitlint/cli": "^20.5.3",
+    "@commitlint/config-conventional": "^20.5.3",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.9.0",
+    "husky": "^9.1.7",
+    "tsx": "^4.19.2",
+    "typescript": "^5.6.3"
+  }
+}
