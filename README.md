@@ -36,8 +36,9 @@ Jede Quelle wird parallel angefragt; eine fehlerhafte Quelle bricht den Lauf nic
 
 ```bash
 git clone <repo> rewind && cd rewind
-npm install
-npm link                              # macht `rewind` global verfügbar (build läuft als prepare-script automatisch)
+npm install                           # KEIN script-execution (siehe .npmrc), reine Dep-Installation
+npm run prepare                       # baut dist/ + installiert Husky-Hooks (nur unsere eigenen Scripts)
+npm link                              # macht `rewind` global verfügbar
 
 rewind config init                    # legt ~/.config/rewind/config.yaml an
 cp .env.example .env                  # PATs + GEMINI_API_KEY eintragen
@@ -46,6 +47,9 @@ cp .env.example .env                  # PATs + GEMINI_API_KEY eintragen
 rewind --no-llm --sources git         # erstmal git allein testen
 rewind                                # voller Lauf für gestern (Mo holt Freitag)
 ```
+
+> **Hinweis zur Sicherheit**: Das Repo enthält ein `.npmrc` mit `ignore-scripts=true`.
+> Dadurch laufen beim `npm install` **keine** `pre`/`post`/`install`-Scripts von Dependencies — die häufigste Einfallstür für npm-Supply-Chain-Angriffe (shai-hulud, es5-ext, …). Unser eigener Build läuft dann manuell via `npm run prepare`. Wenn du dem Repo selbst absolut traust, kannst du das setting in `.npmrc` lockern.
 
 ## CLI
 
