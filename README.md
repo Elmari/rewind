@@ -149,6 +149,11 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      base_url: https://jira.firma.de
      pat_env: JIRA_PAT
      auth_method: bearer        # falls 401 zurückkommt, auf 'basic' umstellen
+     active_projects:           # Projektkeys, in denen ein zugewiesenes offenes Ticket
+       - SQDPO                  # als "in Bearbeitung" zählt. Leer = Vorschlags-Fallback aus.
+     suggestions_jql: 'project = SQDPO AND status = "Ready for Dev" ORDER BY priority DESC'
+     # ↑ Wenn in keinem `active_projects` ein zugewiesenes offenes Ticket existiert,
+     #   werden zusätzlich bis zu 10 Tickets dieses JQLs als Pickup-Vorschläge ausgegeben.
    identity:
      atlassian_user: e.fischer  # dein Jira-Username (für JQL-Filter)
    ```
@@ -536,6 +541,7 @@ Der Prompt (in `src/llm/prompt.ts`) erzwingt einen zweigeteilten Output:
 - Wenn ein offenes Item dieselbe Ticket-ID wie ein Gestern-Bullet hat, **nicht doppelt nennen** — nur kurz "läuft weiter"
 - Termine kompakt: `14:00 Architektur-Sync mit Backend`
 - Hinweise auf alte unangetastete Items ("PR liegt seit 5 Tagen") nur wenn auffällig
+- Wenn aktuell **nichts in Bearbeitung** ist (kein zugewiesenes offenes Ticket in `active_projects`) und ein `suggestions_jql` konfiguriert ist, werden 1–2 konkrete Pickup-Vorschläge als "könnte heute … angehen" formuliert
 
 Beispiel-Output:
 
@@ -556,7 +562,7 @@ Heute:
 
 | Quelle | Aktivitäten (gestern) | Offene Items | Heutiger Kalender |
 |---|---|---|---|
-| Jira | Issues + Status-Transitions + Worklogs | Tickets mit `assignee = du AND statusCategory != Done` | – |
+| Jira | Issues + Status-Transitions + Worklogs | Tickets mit `assignee = du AND statusCategory != Done` (+ optional Vorschläge via `suggestions_jql`, falls in `active_projects` nichts läuft) | – |
 | Confluence | Pages + Comments | – | – |
 | Bitbucket | PRs + Reviews + Comments | Eigene offene PRs + Review-Inbox | – |
 | GitLab | Pushes + MRs + Reviews + Comments | Eigene offene MRs + Review-Inbox | – |
