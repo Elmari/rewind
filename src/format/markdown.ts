@@ -57,6 +57,26 @@ export function renderMarkdownBody(_range: DateRange, results: SourceResult[]): 
     lines.push(...openLines);
   }
 
+  const agendaLines: string[] = [];
+  for (const r of results) {
+    const agenda = r.agenda ?? [];
+    if (agenda.length === 0) continue;
+    const label = SOURCE_LABELS[r.source] ?? r.source;
+    agendaLines.push(`### ${label}`);
+    for (const a of agenda) {
+      const time = format(new Date(a.start), 'HH:mm');
+      const endTime = a.end ? `–${format(new Date(a.end), 'HH:mm')}` : '';
+      const title = a.url ? `[${a.title}](${a.url})` : a.title;
+      agendaLines.push(`- \`${time}${endTime}\` ${title}`);
+    }
+    agendaLines.push('');
+  }
+  if (agendaLines.length) {
+    lines.push('## Heute');
+    lines.push('');
+    lines.push(...agendaLines);
+  }
+
   return lines.join('\n');
 }
 

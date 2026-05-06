@@ -1,8 +1,8 @@
 # rewind
 
-> Was hab ich gestern eigentlich gemacht — und woran bin ich aktuell dran?
+> Was hab ich gestern eigentlich gemacht — woran bin ich aktuell dran — und was steht heute an?
 
-`rewind` sammelt aus Jira, Confluence, Bitbucket, GitLab, GitHub, lokalen Git-Repos, Jenkins, Todoist, Outlook und Teams (a) was du gestern gemacht hast und (b) was aktuell offen ist (Tickets, PRs/MRs, Tasks). Beides geht an einen (Unternehmens-)Gemini, der eine zweigeteilte Daily-Standup-Zusammenfassung erzeugt: "Gestern …" + "Aktuell offen …".
+`rewind` sammelt aus Jira, Confluence, Bitbucket, GitLab, GitHub, lokalen Git-Repos, Jenkins, Todoist, Outlook und Teams **drei** Sichten zusammen: (a) Aktivitäten vom Vortag, (b) aktuell offene Tickets/PRs/Tasks und (c) den heutigen Kalender. Alles geht an einen (Unternehmens-)Gemini, der eine **zweigeteilte** Daily-Standup-Zusammenfassung erzeugt: "Gestern …" + "Heute …" (mit smartem Merge aus offener Arbeit + Terminen).
 
 Gedacht für die fünf Minuten vor dem Daily, in denen man sich sonst durch sieben Tabs klickt.
 
@@ -519,10 +519,11 @@ Der Prompt (in `src/llm/prompt.ts`) erzwingt einen zweigeteilten Output:
 - Erste Person, konkrete Verben (implementiert, gefixt, reviewed)
 - Routine-Meetings raus, substantielle Termine als eigenes Bullet
 
-**Abschnitt 2 — "Aktuell offen":**
-- 3–8 Bullets, gruppiert: eigene aktive Tickets/PRs zuerst, dann anstehende Reviews, dann Tasks
-- Wenn ein offenes Item dieselbe Ticket-ID wie ein Gestern-Bullet hat, **nicht doppelt nennen** — nur kurz weitermachen ("…, läuft weiter")
-- Hinweise auf alte unangetastete Items ("PR liegt seit 5 Tagen")
+**Abschnitt 2 — "Heute":** verschmilzt offene Arbeit + heute anstehende Termine.
+- 3–6 Bullets, gruppiert: laufende eigene Arbeit (offene Tickets/PRs) zuerst, dann anstehende Reviews, dann Termine, dann Tasks
+- Wenn ein offenes Item dieselbe Ticket-ID wie ein Gestern-Bullet hat, **nicht doppelt nennen** — nur kurz "läuft weiter"
+- Termine kompakt: `14:00 Architektur-Sync mit Backend`
+- Hinweise auf alte unangetastete Items ("PR liegt seit 5 Tagen") nur wenn auffällig
 
 Beispiel-Output:
 
@@ -532,23 +533,27 @@ Beispiel-Output:
 - PROJ-1201: PR von Anna reviewed.
 - Architektur-Abstimmung mit Backend-Team zum neuen Event-Bus.
 
-Aktuell offen:
+Heute:
 - PROJ-1234: Caching-Layer (In Progress) — läuft weiter.
-- PROJ-1235: Search-Bug (To Do).
 - 2 PRs warten auf mein Review (#42, #44).
-- Todoist: Spec für Migrationspfad fertigstellen.
+- 14:00 Refinement, 15:30 Architektur-Sync.
+- Todoist: Spec für Migrationspfad fertigstellen (fällig morgen).
 ```
 
-### Welche Quellen liefern offene Items?
+### Welche Quellen liefern was?
 
-| Quelle | Was als "offen" gilt |
-|---|---|
-| Jira | Tickets mit `assignee = du AND statusCategory != Done` |
-| Bitbucket | Eigene offene PRs + PRs die auf mein Review warten |
-| GitLab | Eigene offene MRs + MRs die auf mein Review warten |
-| GitHub | Eigene offene PRs + PRs mit `review-requested:me` |
-| Todoist | Offene Tasks in den konfigurierten Projekten |
-| (andere) | Liefern aktuell keine Open-Items |
+| Quelle | Aktivitäten (gestern) | Offene Items | Heutiger Kalender |
+|---|---|---|---|
+| Jira | Issues + Status-Transitions + Worklogs | Tickets mit `assignee = du AND statusCategory != Done` | – |
+| Confluence | Pages + Comments | – | – |
+| Bitbucket | PRs + Reviews + Comments | Eigene offene PRs + Review-Inbox | – |
+| GitLab | Pushes + MRs + Reviews + Comments | Eigene offene MRs + Review-Inbox | – |
+| GitHub | Pushes + PRs + Reviews + Comments | Eigene offene PRs + `review-requested:me` | – |
+| Git (lokal) | Commits | – | – |
+| Jenkins | Builds | – | – |
+| Todoist | Completed Tasks | Offene Tasks (Projekt-Whitelist) | – |
+| Outlook | Termine gestern + gesendete Mails | – | Termine heute (ab jetzt) |
+| Teams | Chat-Aktivität + Meetings | – | Online-Meetings heute (falls aktiviert) |
 
 **Bot-PRs ausfiltern**: Bitbucket/GitLab/GitHub haben jeweils ein `ignored_authors`-Feld (siehe Setup-Sektionen). Standardmäßig leer; gängige Werte: `renovate`, `dependabot`, `renovate-bot`, `renovate[bot]`. Damit landen Renovate-PRs nicht in der Open-Liste.
 

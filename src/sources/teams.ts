@@ -2,7 +2,7 @@ import type { TeamsConfig } from '../config.js';
 import { acquireGraphToken, deviceCodeLogin } from '../auth/msal.js';
 import { request } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, AgendaItem, DateRange, FetchContext, SourceResult } from '../types.js';
 
 const SCOPES = ['User.Read', 'Chat.Read', 'OnlineMeetings.Read'];
 
@@ -138,5 +138,43 @@ export async function fetchTeams(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'teams', activities };
+
+  const agenda = cfg.include_online_meetings ? await fetchTeamsAgenda(headers, ctx) : [];
+  return { source: 'teams', activities, agenda };
+}
+
+async function fetchTeamsAgenda(
+  headers: Record<string, string>,
+  ctx: FetchContext,
+): Promise<AgendaItem[]> {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const meetings = await request<GraphOnlineMeetingList>(
+      'https://graph.microsoft.com/v1.0/me/onlineMeetings',
+      {
+        headers,
+        query: {
+          $filter: `startDateTime ge ${startOfToday.toISOString()} and startDateTime le ${endOfToday.toISOString()}`,
+        },
+      },
+    );
+    const out: AgendaItem[] = [];
+    for (const m of meetings.value) {
+      if (new Date(m.endDateTime).getTime() < now.getTime()) continue;
+      out.push({
+        source: 'teams',
+        type: 'online-meeting',
+        start: m.startDateTime,
+        end: m.endDateTime,
+        title: m.subject || '(Online Meeting)',
+        url: m.joinWebUrl,
+      });
+    }
+    return out;
+  } catch (err) {
+    ctx.warn('teams: today-agenda fetch failed', err);
+    return [];
+  }
 }

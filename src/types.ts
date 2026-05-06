@@ -30,6 +30,16 @@ export interface OpenItem {
   details?: Record<string, unknown>;
 }
 
+export interface AgendaItem {
+  source: SourceName;
+  type: string; // 'meeting' | 'online-meeting' | 'task-due-today'
+  start: string; // ISO
+  end?: string;
+  title: string;
+  url?: string;
+  details?: Record<string, unknown>;
+}
+
 export interface DateRange {
   since: Date;
   until: Date;
@@ -40,6 +50,7 @@ export interface SourceResult {
   source: SourceName;
   activities: Activity[];
   open?: OpenItem[];
+  agenda?: AgendaItem[];
   error?: string;
 }
 

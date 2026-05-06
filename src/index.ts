@@ -162,7 +162,7 @@ async function runMain(opts: MainOpts): Promise<void> {
     }
     const apiKey = readEnvSecret(cfg.llm.api_key_env);
     const condensed = condenseForLlm(results);
-    if (!condensed.hasActivities && !condensed.hasOpen) {
+    if (!condensed.hasActivities && !condensed.hasOpen && !condensed.hasAgenda) {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;
     } else {

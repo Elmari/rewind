@@ -2,7 +2,7 @@ import type { OutlookConfig } from '../config.js';
 import { acquireGraphToken, deviceCodeLogin } from '../auth/msal.js';
 import { request, bearer } from '../http.js';
 import { rangeContains } from '../range.js';
-import type { Activity, DateRange, FetchContext, SourceResult } from '../types.js';
+import type { Activity, AgendaItem, DateRange, FetchContext, SourceResult } from '../types.js';
 
 const SCOPES = ['User.Read', 'Calendars.Read', 'Mail.Read'];
 
@@ -113,5 +113,54 @@ export async function fetchOutlook(
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
-  return { source: 'outlook', activities };
+
+  const agenda = cfg.include_calendar ? await fetchOutlookAgenda(headers, ctx) : [];
+  return { source: 'outlook', activities, agenda };
+}
+
+async function fetchOutlookAgenda(
+  headers: Record<string, string>,
+  ctx: FetchContext,
+): Promise<AgendaItem[]> {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const cal = await request<GraphCalendarResponse>(
+      `https://graph.microsoft.com/v1.0/me/calendarView`,
+      {
+        headers,
+        query: {
+          startDateTime: startOfToday.toISOString(),
+          endDateTime: endOfToday.toISOString(),
+          $select: 'subject,start,end,isCancelled,organizer,webLink',
+          $orderby: 'start/dateTime',
+          $top: 50,
+        },
+      },
+    );
+    const agenda: AgendaItem[] = [];
+    for (const ev of cal.value) {
+      if (ev.isCancelled) continue;
+      const startIso = new Date(`${ev.start.dateTime}Z`).toISOString();
+      const endIso = new Date(`${ev.end.dateTime}Z`).toISOString();
+      // skip events that already ended
+      if (new Date(endIso).getTime() < now.getTime()) continue;
+      agenda.push({
+        source: 'outlook',
+        type: 'meeting',
+        start: startIso,
+        end: endIso,
+        title: ev.subject || '(no subject)',
+        url: ev.webLink,
+        details: {
+          organizer: ev.organizer?.emailAddress?.address,
+        },
+      });
+    }
+    return agenda;
+  } catch (err) {
+    ctx.warn('outlook: today-agenda fetch failed', err);
+    return [];
+  }
 }

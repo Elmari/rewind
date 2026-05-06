@@ -3,12 +3,15 @@ import type { SourceResult } from '../types.js';
 
 const MAX_PER_SOURCE = 60;
 const MAX_OPEN_PER_SOURCE = 30;
+const MAX_AGENDA_PER_SOURCE = 30;
 
 export interface CondensedInput {
   activities: string;
   openItems: string;
+  agenda: string;
   hasActivities: boolean;
   hasOpen: boolean;
+  hasAgenda: boolean;
 }
 
 export function condenseForLlm(results: SourceResult[]): CondensedInput {
@@ -43,11 +46,30 @@ export function condenseForLlm(results: SourceResult[]): CondensedInput {
     openBlocks.push(lines.join('\n'));
   }
 
+  const agendaBlocks: string[] = [];
+  for (const r of results) {
+    const agenda = r.agenda ?? [];
+    if (agenda.length === 0) continue;
+    const lines: string[] = [];
+    lines.push(`## ${r.source}`);
+    for (const a of agenda.slice(0, MAX_AGENDA_PER_SOURCE)) {
+      const time = format(new Date(a.start), 'HH:mm');
+      const endTime = a.end ? `–${format(new Date(a.end), 'HH:mm')}` : '';
+      lines.push(`- ${time}${endTime} [${a.type}] ${a.title}`);
+    }
+    if (agenda.length > MAX_AGENDA_PER_SOURCE) {
+      lines.push(`- (… ${agenda.length - MAX_AGENDA_PER_SOURCE} weitere ${r.source}-Einträge ausgelassen)`);
+    }
+    agendaBlocks.push(lines.join('\n'));
+  }
+
   return {
     activities: activityBlocks.join('\n\n'),
     openItems: openBlocks.join('\n\n'),
+    agenda: agendaBlocks.join('\n\n'),
     hasActivities: activityBlocks.length > 0,
     hasOpen: openBlocks.length > 0,
+    hasAgenda: agendaBlocks.length > 0,
   };
 }
 
