@@ -2,7 +2,7 @@
 import 'dotenv/config';
 import { Command } from 'commander';
 import clipboard from 'clipboardy';
-import { loadConfig, writeSampleConfig, defaultConfigPath, readEnvSecret } from './config.js';
+import { loadConfig, writeSampleConfig, defaultConfigPath } from './config.js';
 import { resolveRange } from './range.js';
 import { ALL_SOURCES, runSources } from './sources/index.js';
 import { loginOutlook } from './sources/outlook.js';
@@ -160,7 +160,6 @@ async function runMain(opts: MainOpts): Promise<void> {
       console.error('No llm config — re-run with --no-llm or set llm in config.');
       process.exit(1);
     }
-    const apiKey = readEnvSecret(cfg.llm.api_key_env);
     const condensed = condenseForLlm(results);
     if (!condensed.hasActivities && !condensed.hasOpen && !condensed.hasAgenda) {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
@@ -168,7 +167,7 @@ async function runMain(opts: MainOpts): Promise<void> {
     } else {
       const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed);
       const llmStart = Date.now();
-      const summary = await spinner('asking Gemini', () => summarize(prompt, cfg.llm!, apiKey));
+      const summary = await spinner('asking Gemini', () => summarize(prompt, cfg.llm!));
       llmSeconds = (Date.now() - llmStart) / 1000;
       const rawBody = renderMarkdownBody(range, results);
       clipboardText = `# rewind — ${range.label}\n\n${summary}\n\n---\n\n<details><summary>Rohdaten</summary>\n\n${rawBody}\n\n</details>\n`;

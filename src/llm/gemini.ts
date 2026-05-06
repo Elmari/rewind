@@ -2,11 +2,6 @@ import type { LlmConfig } from '../config.js';
 import { request } from '../http.js';
 import type { PromptResult } from './prompt.js';
 
-export function resolveEndpoint(cfg: LlmConfig): string {
-  if (!cfg.region) return cfg.endpoint;
-  return cfg.endpoint.replace(/\{region\}/g, cfg.region);
-}
-
 interface GeminiResponse {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
@@ -15,7 +10,24 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-export async function summarize(prompt: PromptResult, cfg: LlmConfig, apiKey: string): Promise<string> {
+const ENV_VAR_RE = /\$\{([A-Z_][A-Z0-9_]*)\}/g;
+
+export function resolveCustomHeaders(custom?: Record<string, string>): Record<string, string> {
+  if (!custom) return {};
+  const out: Record<string, string> = {};
+  for (const [name, value] of Object.entries(custom)) {
+    out[name] = value.replace(ENV_VAR_RE, (_, varName: string) => {
+      const v = process.env[varName];
+      if (v === undefined || v === '') {
+        throw new Error(`llm.custom_headers.${name}: env var ${varName} is not set`);
+      }
+      return v;
+    });
+  }
+  return out;
+}
+
+export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<string> {
   const body = JSON.stringify({
     contents: [{ role: 'user', parts: [{ text: prompt.userPrompt }] }],
     systemInstruction: { parts: [{ text: prompt.systemInstruction }] },
@@ -27,12 +39,11 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig, apiKey: st
 
   const headers: Record<string, string> = {
     'content-type': 'application/json',
-    'x-api-key': apiKey,
     accept: 'application/json',
-    ...cfg.custom_headers,
+    ...resolveCustomHeaders(cfg.custom_headers),
   };
 
-  const res = await request<GeminiResponse>(resolveEndpoint(cfg), {
+  const res = await request<GeminiResponse>(cfg.endpoint, {
     method: 'POST',
     headers,
     body,

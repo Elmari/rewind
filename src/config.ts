@@ -100,9 +100,7 @@ const TeamsSchema = z.object({
 
 const LlmSchema = z.object({
   endpoint: z.string().url(),
-  api_key_env: z.string().default('GEMINI_API_KEY'),
   model: z.string().default('gemini-2.5-flash'),
-  region: z.string().optional(),
   prompt_language: z.enum(['de', 'en']).default('de'),
   custom_headers: z.record(z.string()).optional(),
 });
@@ -290,14 +288,12 @@ sources:
     max_chats: 50                      # how many recent chats to scan
 
 llm:
-  endpoint: https://{region}-corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
-  api_key_env: GEMINI_API_KEY
+  endpoint: https://corp-llm-proxy.firma.de/projects/PROJECT/locations/europe-west1/publishers/google/models/gemini-2.5-flash:generateContent
   model: gemini-2.5-flash
-  region: europe-west1               # substituted into {region} placeholder in endpoint
   prompt_language: de
-  # custom_headers:
-  #   X-Company-Source: rewind
-  #   Authorization: Bearer some-other-token
+  custom_headers:                    # auth runs entirely through custom headers
+    x-api-key: '\${GEMINI_API_KEY}'  # \${ENV_VAR} is substituted from the environment at request time
+    # x-tenant-id: team-x            # add whatever else your proxy needs
 
 output:
   format: markdown

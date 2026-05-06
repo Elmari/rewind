@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import type { Config } from './config.js';
 import { atlassianAuthHeader, basic, request } from './http.js';
 import { acquireGraphToken } from './auth/msal.js';
-import { resolveEndpoint } from './llm/gemini.js';
+import { resolveCustomHeaders } from './llm/gemini.js';
 import { expandHome } from './path.js';
 import type { SourceName } from './types.js';
 import { SOURCE_EMOJI, banner, c, footer, isTty } from './ui.js';
@@ -255,8 +255,6 @@ async function pingTeams(cfg: Config): Promise<DoctorResult> {
 async function pingLlm(cfg: Config): Promise<DoctorResult> {
   const c = cfg.llm;
   if (!c) return { source: 'llm', status: 'disabled', message: 'no llm config' };
-  const apiKey = envValue(c.api_key_env);
-  if (!apiKey) return { source: 'llm', status: 'fail', message: `missing env ${c.api_key_env}` };
 
   return safe('llm', async () => {
     // Minimal "hello" call to verify connectivity + auth
@@ -266,19 +264,19 @@ async function pingLlm(cfg: Config): Promise<DoctorResult> {
     });
     const headers: Record<string, string> = {
       'content-type': 'application/json',
-      'x-api-key': apiKey,
       accept: 'application/json',
-      ...c.custom_headers,
+      ...resolveCustomHeaders(c.custom_headers),
     };
     const res = await request<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>(
-      resolveEndpoint(c),
+      c.endpoint,
       { method: 'POST', headers, body },
     );
     const text = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    const headerCount = c.custom_headers ? Object.keys(c.custom_headers).length : 0;
     return {
       source: 'llm',
       status: 'ok',
-      message: `endpoint reachable, model: ${c.model}${c.custom_headers ? ` (${Object.keys(c.custom_headers).length} custom headers)` : ''}`,
+      message: `endpoint reachable, model: ${c.model}${headerCount ? ` (${headerCount} custom header(s))` : ''}`,
       identity: text || '(empty response)',
     };
   });

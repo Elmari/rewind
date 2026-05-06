@@ -400,25 +400,23 @@ rewind login teams
 
 ```yaml
 llm:
-  endpoint: https://{region}-corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
-  api_key_env: GEMINI_API_KEY
+  endpoint: https://corp-llm-proxy.firma.de/projects/PROJECT/locations/europe-west1/publishers/google/models/gemini-2.5-flash:generateContent
   model: gemini-2.5-flash
-  region: europe-west1           # wird in {region}-Platzhalter im endpoint substituiert
   prompt_language: de            # 'en' für englische Bullet-Liste
-  # custom_headers:              # optional: zusätzliche Header für den Corp-Proxy
-  #   x-tenant-id: 'team-x'
-  #   x-on-behalf-of: 'efischer@firma.de'
+  custom_headers:                # auth läuft komplett hierüber
+    x-api-key: '${GEMINI_API_KEY}'   # ${ENV_VAR} wird zur Laufzeit aus dem Environment substituiert
+    # x-tenant-id: team-x        # zusätzliche Header nach Bedarf
 ```
 
 ```
 GEMINI_API_KEY=<key>
 ```
 
-`rewind` postet im Standard-Gemini-Body-Format mit getrennter `systemInstruction` (Daily-Style-Anweisungen + Few-Shot-Beispiel, identisch über alle Calls) und `contents` (deine Aktivitäten von gestern). Auth läuft über den `x-api-key`-Header.
+**Auth-Modell**: `rewind` setzt **keinen** Header automatisch — alles läuft über `custom_headers`. Region, Project-ID, Location, Modellname leben in der `endpoint`-URL. Welcher Header für die Auth genutzt wird, entscheidest du: `x-api-key`, `Authorization: Bearer …`, was auch immer dein Proxy verlangt.
 
-**`region`** wird als Template-Variable behandelt — überall, wo `{region}` im `endpoint` auftaucht, wird der Wert eingesetzt. Praktisch wenn euer Proxy regional getrennte Endpoints hat (`https://europe-west1-...`, `https://us-central1-...`). Wenn du keine Region brauchst: Feld weglassen, Endpoint ohne `{region}`-Platzhalter.
+**Env-Var-Substitution**: In `custom_headers`-Werten wird `${ENV_VAR_NAME}` zur Laufzeit aus dem Environment ersetzt. Wenn die Variable nicht gesetzt ist → Fehler mit klarem Hinweis. So bleiben Secrets in `.env` und nicht in der Config-Datei.
 
-**`custom_headers`** ist die Escape-Hatch, falls euer Proxy zusätzliche Header verlangt — z. B. einen Tenant-Identifier, On-Behalf-Of-Header oder ein zweites Auth-Token. Beliebige Key/Value-Paare, werden bei jedem LLM-Call mitgeschickt. Falls sich der Body-Shape selbst unterscheidet (z. B. OpenAI-kompatibel statt Gemini), ist `src/llm/gemini.ts` der einzige Ort, an dem das angepasst werden muss.
+**Body-Shape**: Standard-Gemini-Format mit getrennter `systemInstruction` (Daily-Style-Anweisungen + Few-Shot-Beispiel) und `contents` (deine Aktivitäten). Falls dein Proxy ein anderes Body-Schema erwartet (z. B. OpenAI-kompatibel statt Gemini), ist `src/llm/gemini.ts` die einzige Stelle, an der das angepasst werden muss.
 
 Verifiziere die Anbindung mit:
 ```bash
