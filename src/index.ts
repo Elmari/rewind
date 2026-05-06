@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import 'dotenv/config';
+import './env.js';
 import { Command } from 'commander';
 import clipboard from 'clipboardy';
 import { loadConfig, writeSampleConfig, defaultConfigPath } from './config.js';

@@ -48,6 +48,25 @@ rewind --no-llm --sources git         # erstmal git allein testen
 rewind                                # voller Lauf für gestern (Mo holt Freitag)
 ```
 
+### Von überall ausführen
+
+`npm link` registriert `rewind` global, aber Secrets werden standardmäßig nur in der aktuellen Arbeits-Directory gesucht (`./.env`). Damit du `rewind` in jedem beliebigen Verzeichnis aufrufen kannst, leg deine `.env` an einem **globalen** Ort ab — `rewind` lädt sie in dieser Reihenfolge (erster Treffer pro Variable gewinnt):
+
+1. `$REWIND_ENV` (Pfad in dieser Env-Variable)
+2. `~/.config/rewind/.env` (empfohlen — analog zur `config.yaml`)
+3. `./.env` (Fallback fürs Repo-Verzeichnis)
+
+```bash
+# einmalig
+mkdir -p ~/.config/rewind
+mv .env ~/.config/rewind/.env
+
+# danach läuft rewind aus jedem Verzeichnis
+cd ~/Downloads && rewind doctor
+```
+
+Die `config.yaml` lebt sowieso schon global unter `~/.config/rewind/config.yaml` (oder über `$REWIND_CONFIG`).
+
 > **Hinweis zur Sicherheit**: Das Repo enthält ein `.npmrc` mit `ignore-scripts=true`.
 > Dadurch laufen beim `npm install` **keine** `pre`/`post`/`install`-Scripts von Dependencies — die häufigste Einfallstür für npm-Supply-Chain-Angriffe (shai-hulud, es5-ext, …). Unser eigener Build läuft dann manuell via `npm run prepare`. Wenn du dem Repo selbst absolut traust, kannst du das setting in `.npmrc` lockern.
 
