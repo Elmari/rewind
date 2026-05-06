@@ -88,27 +88,31 @@ export async function fetchJira(
     for (const history of issue.changelog?.histories ?? []) {
       if (!rangeContains(range, history.created)) continue;
       if (!matchesUser(history.author, user)) continue;
-      for (const item of history.items) {
-        if (item.field === 'status') {
-          const resSuffix = resolution ? ` [${resolution}]` : '';
-          activities.push({
-            source: 'jira',
-            type: 'status-transition',
-            timestamp: history.created,
-            title: `${issue.key}: ${item.fromString} → ${item.toString}${resSuffix}`,
-            url: `${browseBase}/${issue.key}`,
-            details: { issue: issue.key, from: item.fromString, to: item.toString },
-          });
-        } else if (item.field === 'resolution') {
-          activities.push({
-            source: 'jira',
-            type: 'status-transition',
-            timestamp: history.created,
-            title: `${issue.key}: Lösungsweg -> ${item.toString || 'Keiner'}`,
-            url: `${browseBase}/${issue.key}`,
-            details: { issue: issue.key, resolution: item.toString },
-          });
-        }
+
+      const statusItem = history.items.find((i) => i.field === 'status');
+      const resolutionItem = history.items.find((i) => i.field === 'resolution');
+
+      if (statusItem) {
+        // If resolution changed in the same history entry, use it; otherwise fallback to current resolution
+        const res = resolutionItem?.toString || resolution;
+        const resSuffix = res ? ` [${res}]` : '';
+        activities.push({
+          source: 'jira',
+          type: 'status-transition',
+          timestamp: history.created,
+          title: `${issue.key}: ${statusItem.fromString} → ${statusItem.toString}${resSuffix}`,
+          url: `${browseBase}/${issue.key}`,
+          details: { issue: issue.key, from: statusItem.fromString, to: statusItem.toString, resolution: res },
+        });
+      } else if (resolutionItem) {
+        activities.push({
+          source: 'jira',
+          type: 'status-transition',
+          timestamp: history.created,
+          title: `${issue.key}: Lösungsweg -> ${resolutionItem.toString || 'Keiner'}`,
+          url: `${browseBase}/${issue.key}`,
+          details: { issue: issue.key, resolution: resolutionItem.toString },
+        });
       }
     }
 
