@@ -206,7 +206,8 @@ async function pingTodoist(cfg: Config): Promise<DoctorResult> {
   const token = envValue(c.api_token_env);
   if (!token) return { source: 'todoist', status: 'fail', message: `missing env ${c.api_token_env}` };
   return safe('todoist', async () => {
-    const projects = await request<Array<{ name: string; id: string }>>('https://api.todoist.com/rest/v2/projects', {
+    const projectsUrl = `${c.base_url.replace(/\/$/, '')}${c.paths.projects}`;
+    const projects = await request<Array<{ name: string; id: string }>>(projectsUrl, {
       headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
     });
     if (c.projects.length) {
