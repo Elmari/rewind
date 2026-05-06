@@ -173,21 +173,29 @@ async function fetchDashboardPRs(
   role: 'AUTHOR' | 'REVIEWER',
   range: DateRange,
 ): Promise<BbPullRequest[]> {
-  const out: BbPullRequest[] = [];
-  let start = 0;
+  const states: Array<'OPEN' | 'MERGED' | 'DECLINED'> = ['OPEN', 'MERGED', 'DECLINED'];
+  const allPrs = new Map<number, BbPullRequest>();
   const sinceMs = range.since.getTime();
-  while (true) {
-    const res = await request<BbDashboardResponse>(`${baseUrl}/rest/api/1.0/dashboard/pull-requests`, {
-      headers,
-      query: { state: 'ALL', role, order: 'NEWEST', start, limit: 50 },
-    });
-    out.push(...res.values);
-    const oldest = res.values[res.values.length - 1];
-    if (!oldest || oldest.updatedDate < sinceMs) break;
-    if (res.isLastPage || res.nextPageStart === undefined) break;
-    start = res.nextPageStart;
+
+  for (const state of states) {
+    let start = 0;
+    while (true) {
+      const res = await request<BbDashboardResponse>(`${baseUrl}/rest/api/1.0/dashboard/pull-requests`, {
+        headers,
+        query: { state, role, order: 'NEWEST', start, limit: 50 },
+      });
+      for (const pr of res.values) {
+        if (pr.updatedDate >= sinceMs) {
+          allPrs.set(pr.id, pr);
+        }
+      }
+      const oldest = res.values[res.values.length - 1];
+      if (!oldest || oldest.updatedDate < sinceMs) break;
+      if (res.isLastPage || res.nextPageStart === undefined) break;
+      start = res.nextPageStart;
+    }
   }
-  return out.filter((pr) => pr.updatedDate >= sinceMs);
+  return Array.from(allPrs.values());
 }
 
 async function fetchPRActivities(
