@@ -94,8 +94,9 @@ Pro aktivierter Quelle wird ein leichter Test-Call gemacht — der **dich** auf 
   ✓ ✅ todoist      1 project(s) matched
   ✓ 📧 outlook      silent token OK                               [e.fischer@firma.de]
   ─ 💬 teams        disabled in config
+  ✓ 🧠 llm          endpoint reachable, model: gemini-2.5-flash   [OK]
 
-  1 ok · 2 failed · 7 disabled
+  7 ok · 2 failed · 2 disabled
 ```
 
 **Symbolik:**
@@ -118,6 +119,7 @@ Exit-Code ist `1`, wenn mindestens eine Quelle fehlschlägt — gut für CI/Skri
 | Jenkins | `/api/json` | API-Token + Server erreichbar |
 | Todoist | `/projects` | Token + ob konfigurierte Projekt-Namen existieren |
 | Outlook/Teams | `/me` mit silent token | dass MSAL-Cache gültig ist (sonst: erst `rewind login`) |
+| LLM (Gemini) | `POST <endpoint>` mit `Respond with exactly OK` | Endpoint, `x-api-key`, `custom_headers`, Body-Format und Modell-Erreichbarkeit |
 
 Faustregel: **immer `rewind doctor` laufen lassen, bevor du das erste Mal `rewind` für gestern startest** — dann findest du Konfig-Probleme auf der Stelle, statt mit einem stillen leeren Bullet-Output dazustehen.
 
@@ -386,13 +388,24 @@ llm:
   api_key_env: GEMINI_API_KEY
   model: gemini-2.5-flash
   prompt_language: de            # 'en' für englische Bullet-Liste
+  # custom_headers:              # optional: zusätzliche Header für den Corp-Proxy
+  #   x-tenant-id: 'team-x'
+  #   x-on-behalf-of: 'efischer@firma.de'
 ```
 
 ```
 GEMINI_API_KEY=<key>
 ```
 
-`rewind` postet im Standard-Gemini-Body-Format (`{ contents: [{ role: 'user', parts: [{ text }] }] }`) und sendet den API-Key im `x-api-key`-Header. Falls euer Proxy ein anderes Format erwartet, ist `src/llm/gemini.ts` der einzige Ort, an dem das angepasst werden muss.
+`rewind` postet im Standard-Gemini-Body-Format mit getrennter `systemInstruction` (Daily-Style-Anweisungen + Few-Shot-Beispiel, identisch über alle Calls) und `contents` (deine Aktivitäten von gestern). Auth läuft über den `x-api-key`-Header.
+
+**`custom_headers`** ist die Escape-Hatch, falls euer Proxy zusätzliche Header verlangt — z. B. einen Tenant-Identifier, On-Behalf-Of-Header oder ein zweites Auth-Token. Beliebige Key/Value-Paare, werden bei jedem LLM-Call mitgeschickt. Falls sich der Body-Shape selbst unterscheidet (z. B. OpenAI-kompatibel statt Gemini), ist `src/llm/gemini.ts` der einzige Ort, an dem das angepasst werden muss.
+
+Verifiziere die Anbindung mit:
+```bash
+rewind doctor
+```
+— der LLM-Check macht einen minimalen `Respond with exactly OK`-Call und zeigt dir, ob Endpoint, Auth, Header und Modell zusammenpassen.
 
 ### Corp-Proxy & Custom-CA
 

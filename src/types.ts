@@ -8,7 +8,8 @@ export type SourceName =
   | 'jenkins'
   | 'todoist'
   | 'outlook'
-  | 'teams';
+  | 'teams'
+  | 'llm';
 
 export interface Activity {
   source: SourceName;

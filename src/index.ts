@@ -64,8 +64,8 @@ program
 program
   .command('doctor')
   .description('verify each enabled source can authenticate and return data')
-  .option('--config <path>', 'config file path')
-  .action(async (opts: { config?: string }) => {
+  .action(async () => {
+    const opts = program.opts();
     const { config } = loadConfig(opts.config);
     const results = await runDoctor(config);
     console.log(renderDoctorReport(results));
@@ -76,8 +76,8 @@ program
   .command('login')
   .argument('<service>', 'service to log into (outlook | teams)')
   .description('interactive Microsoft 365 login (device-code flow)')
-  .option('--config <path>', 'config file path')
-  .action(async (service: string, opts: { config?: string }) => {
+  .action(async (service: string) => {
+    const opts = program.opts();
     const { config } = loadConfig(opts.config);
     if (service === 'outlook') {
       if (!config.sources.outlook) {

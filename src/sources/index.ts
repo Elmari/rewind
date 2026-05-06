@@ -80,6 +80,7 @@ export const SOURCES: Record<SourceName, SourceFetcher> = {
     if (!cfg.sources.teams?.enabled) return skipped('teams');
     return fetchTeams(range, cfg.sources.teams, ctx);
   },
+  llm: async () => skipped('llm'),
 };
 
 export const ALL_SOURCES: SourceName[] = [

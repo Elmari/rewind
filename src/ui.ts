@@ -47,6 +47,7 @@ export const SOURCE_EMOJI: Record<string, string> = {
   todoist: '✅',
   outlook: '📧',
   teams: '💬',
+  llm: '🧠',
 };
 
 export const SOURCE_COLOR: Record<string, (s: string) => string> = {
@@ -60,6 +61,7 @@ export const SOURCE_COLOR: Record<string, (s: string) => string> = {
   todoist: c.green,
   outlook: c.blue,
   teams: c.magenta,
+  llm: c.magenta,
 };
 
 export async function spinner<T>(label: string, fn: () => Promise<T>): Promise<T> {

@@ -25,6 +25,7 @@ export async function runDoctor(cfg: Config): Promise<DoctorResult[]> {
     pingTodoist(cfg),
     pingOutlook(cfg),
     pingTeams(cfg),
+    pingLlm(cfg),
   ]);
 }
 
@@ -245,6 +246,38 @@ async function pingTeams(cfg: Config): Promise<DoctorResult> {
       headers: { authorization: `Bearer ${token}`, accept: 'application/json' },
     });
     return { source: 'teams', status: 'ok', message: 'silent token OK', identity: me.userPrincipalName };
+  });
+}
+
+async function pingLlm(cfg: Config): Promise<DoctorResult> {
+  const c = cfg.llm;
+  if (!c) return { source: 'llm', status: 'disabled', message: 'no llm config' };
+  const apiKey = envValue(c.api_key_env);
+  if (!apiKey) return { source: 'llm', status: 'fail', message: `missing env ${c.api_key_env}` };
+
+  return safe('llm', async () => {
+    // Minimal "hello" call to verify connectivity + auth
+    const body = JSON.stringify({
+      contents: [{ role: 'user', parts: [{ text: 'Respond with exactly OK' }] }],
+      generationConfig: { maxOutputTokens: 5 },
+    });
+    const headers: Record<string, string> = {
+      'content-type': 'application/json',
+      'x-api-key': apiKey,
+      accept: 'application/json',
+      ...c.custom_headers,
+    };
+    const res = await request<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>(
+      c.endpoint,
+      { method: 'POST', headers, body },
+    );
+    const text = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';
+    return {
+      source: 'llm',
+      status: 'ok',
+      message: `endpoint reachable, model: ${c.model}${c.custom_headers ? ` (${Object.keys(c.custom_headers).length} custom headers)` : ''}`,
+      identity: text || '(empty response)',
+    };
   });
 }
 

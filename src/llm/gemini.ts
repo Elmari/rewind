@@ -1,5 +1,6 @@
 import type { LlmConfig } from '../config.js';
 import { request } from '../http.js';
+import type { PromptResult } from './prompt.js';
 
 interface GeminiResponse {
   candidates?: Array<{
@@ -9,22 +10,26 @@ interface GeminiResponse {
   promptFeedback?: { blockReason?: string };
 }
 
-export async function summarize(prompt: string, cfg: LlmConfig, apiKey: string): Promise<string> {
+export async function summarize(prompt: PromptResult, cfg: LlmConfig, apiKey: string): Promise<string> {
   const body = JSON.stringify({
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    contents: [{ role: 'user', parts: [{ text: prompt.userPrompt }] }],
+    systemInstruction: { parts: [{ text: prompt.systemInstruction }] },
     generationConfig: {
       temperature: 0.3,
       maxOutputTokens: 1024,
     },
   });
 
+  const headers: Record<string, string> = {
+    'content-type': 'application/json',
+    'x-api-key': apiKey,
+    accept: 'application/json',
+    ...cfg.custom_headers,
+  };
+
   const res = await request<GeminiResponse>(cfg.endpoint, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      accept: 'application/json',
-    },
+    headers,
     body,
     timeoutMs: 60_000,
   });

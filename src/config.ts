@@ -88,6 +88,7 @@ const LlmSchema = z.object({
   api_key_env: z.string().default('GEMINI_API_KEY'),
   model: z.string().default('gemini-2.5-flash'),
   prompt_language: z.enum(['de', 'en']).default('de'),
+  custom_headers: z.record(z.string()).optional(),
 });
 
 const OutputSchema = z.object({
@@ -263,6 +264,9 @@ llm:
   api_key_env: GEMINI_API_KEY
   model: gemini-2.5-flash
   prompt_language: de
+  # custom_headers:
+  #   X-Company-Source: rewind
+  #   Authorization: Bearer some-other-token
 
 output:
   format: markdown

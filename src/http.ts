@@ -1,4 +1,5 @@
-import { Agent, ProxyAgent, fetch as undiciFetch, setGlobalDispatcher } from 'undici';
+import { readFileSync } from 'node:fs';
+import { Agent, EnvHttpProxyAgent, fetch as undiciFetch, setGlobalDispatcher } from 'undici';
 
 let initialized = false;
 
@@ -6,12 +7,22 @@ export function initHttp(): void {
   if (initialized) return;
   initialized = true;
 
-  const proxy = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? process.env.HTTP_PROXY ?? process.env.http_proxy;
-  if (proxy) {
-    setGlobalDispatcher(new ProxyAgent({ uri: proxy }));
-  } else {
-    setGlobalDispatcher(new Agent({ connectTimeout: 30_000, headersTimeout: 30_000 }));
+  const caCerts = process.env.NODE_EXTRA_CA_CERTS;
+  let ca: Buffer | undefined;
+  if (caCerts) {
+    try {
+      ca = readFileSync(caCerts);
+    } catch (err) {
+      // ignore or log? for a CLI, maybe just ignore and let it fail later
+    }
   }
+
+  // EnvHttpProxyAgent automatically handles HTTP_PROXY, HTTPS_PROXY and NO_PROXY
+  setGlobalDispatcher(
+    new EnvHttpProxyAgent({
+      factory: (origin, opts) => new Agent({ ...opts, connect: { ...(opts as any)?.connect, ca } }),
+    }),
+  );
 }
 
 export interface RequestOpts {
