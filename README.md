@@ -61,6 +61,7 @@ rewind                                # voller Lauf für gestern (Mo holt Freita
 | `rewind --copy` | Ergebnis ins Clipboard |
 | `rewind --refresh` | Cache ignorieren, neu fetchen |
 | `rewind --config <pfad>` | Andere Config-Datei (sonst `$REWIND_CONFIG` oder Default) |
+| `rewind doctor` | Pro aktivierte Quelle: Auth-Test + Identitäts-Check |
 | `rewind login outlook` / `rewind login teams` | MS Graph Device-Code-Flow |
 | `rewind config init` | Beispiel-Config schreiben |
 
@@ -68,6 +69,57 @@ Quellen lassen sich auf zwei Wegen ausschalten:
 
 - **Dauerhaft**: `enabled: false` im `config.yaml` unter der Quelle.
 - **Pro Lauf**: `--exclude <name1,name2>` (oder `--sources <name>` als Whitelist).
+
+## Setup verifizieren — `rewind doctor`
+
+Nachdem du eine Quelle eingerichtet hast, prüf sie mit:
+
+```bash
+rewind doctor
+```
+
+Pro aktivierter Quelle wird ein leichter Test-Call gemacht — der **dich** auf der Gegenseite identifiziert und sagt, ob Auth + URL + (für Atlassian) `auth_method` zusammenpassen. Beispiel-Output:
+
+```
+  ⏪ rewind doctor
+  ────────────────────────────────────
+
+  ✓ 🎫 jira         auth bearer                                   [e.fischer]
+  ✗ 📘 confluence   missing env CONFLUENCE_PAT
+  ✗ 🪣 bitbucket    401 — try auth_method: basic?
+  ─ 🦊 gitlab       disabled in config
+  ✓ 🐙 github       token valid                                   [efischer]
+  ✓ 💻 git          22 repos found (max_depth=2)                  [(any)]
+  ✓ 🤖 jenkins      2 job(s) configured, server reachable         [efischer]
+  ✓ ✅ todoist      1 project(s) matched
+  ✓ 📧 outlook      silent token OK                               [e.fischer@firma.de]
+  ─ 💬 teams        disabled in config
+
+  1 ok · 2 failed · 7 disabled
+```
+
+**Symbolik:**
+- `✓` (grün): Quelle ist erreichbar, Auth klappt, optional steht in `[…]` der Identifier (so siehst du, ob du wirklich der bist, für den du dich hältst — wichtig bei mehreren Accounts oder Tippfehlern in `identity`).
+- `✗` (rot): Quelle ist enabled, aber Test-Call failed. Die Meldung sagt warum (fehlendes Env, 401, fehlende Projekte, …).
+- `─` (grau): Quelle ist via `enabled: false` aus.
+
+Exit-Code ist `1`, wenn mindestens eine Quelle fehlschlägt — gut für CI/Skripte.
+
+**Was die Test-Calls konkret tun:**
+
+| Quelle | Endpoint | Was bestätigt wird |
+|---|---|---|
+| Jira | `/rest/api/2/myself` | PAT + auth_method, gibt deinen Username zurück |
+| Confluence | `/rest/api/user/current` | dito |
+| Bitbucket | `/dashboard/pull-requests?limit=1` | PAT + Auth + Sichtbarkeit |
+| GitLab | `/api/v4/user` | PAT, gibt User + ID zurück |
+| GitHub | `/user` | PAT, gibt Login zurück |
+| Git | nur lokal | dass `repos_dir` existiert + Anzahl Repos |
+| Jenkins | `/api/json` | API-Token + Server erreichbar |
+| Todoist | `/projects` | Token + ob konfigurierte Projekt-Namen existieren |
+| Outlook/Teams | `/me` mit silent token | dass MSAL-Cache gültig ist (sonst: erst `rewind login`) |
+
+Faustregel: **immer `rewind doctor` laufen lassen, bevor du das erste Mal `rewind` für gestern startest** — dann findest du Konfig-Probleme auf der Stelle, statt mit einem stillen leeren Bullet-Output dazustehen.
 
 ## Setup pro Quelle
 
