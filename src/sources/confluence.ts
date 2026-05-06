@@ -53,13 +53,19 @@ export async function fetchConfluence(
   const activities: Activity[] = [];
 
   for (const r of res.results) {
-    const c = r.content;
-    if (!c) {
-      ctx.warn(`confluence: search result missing 'content' property: ${JSON.stringify(r).slice(0, 200)}`);
+    // Robustness: Some Confluence versions/endpoints might return the content directly in 'r' 
+    // instead of nested under a 'content' property.
+    const c = r.content ?? (r as any);
+    
+    if (!c || (!c.id && !c.type)) {
+      ctx.warn(`confluence: search result missing content fields: ${JSON.stringify(r).slice(0, 200)}`);
       continue;
     }
+    
     if (!c.version) {
-      ctx.warn(`confluence: content ${c.id} missing 'version' property`);
+      // If version is missing, it might be that 'expand=version' was ignored or the user 
+      // has no permission to see history/versions.
+      ctx.warn(`confluence: content ${c.id || '(no id)'} missing 'version' property`);
       continue;
     }
 
