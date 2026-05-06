@@ -7,12 +7,12 @@
     "rewind": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('fs').chmodSync('dist/index.js', 0o755)\"",
     "dev": "tsx src/index.ts",
     "start": "node dist/index.js",
     "test": "node --test --import tsx tests/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "prepare": "husky && tsc"
+    "prepare": "husky && npm run build"
   },
   "files": [
     "dist",
