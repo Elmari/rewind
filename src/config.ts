@@ -11,7 +11,7 @@ const JiraSchema = z.object({
   base_url: z.string().url(),
   pat_env: z.string().default('JIRA_PAT'),
   auth_method: AuthMethodSchema,
-  active_projects: z.array(z.string()).default([]),
+  in_progress_jql: z.string().optional(),
   suggestions_jql: z.string().optional(),
 });
 
@@ -209,9 +209,10 @@ sources:
     base_url: https://jira.firma.de
     pat_env: JIRA_PAT
     auth_method: bearer        # bearer (default) | basic — switch to basic if your server rejects Bearer PATs
-    active_projects: []                # Projektkeys, in denen ein zugewiesenes offenes Ticket als "in Bearbeitung" zählt — z.B. ['SQDPO']. Leer = Vorschlags-Fallback aus.
+    # in_progress_jql: 'assignee = currentUser() AND project = SQDPO AND status = "In Bearbeitung"'
     # suggestions_jql: 'project = SQDPO AND status = "Ready for Dev" ORDER BY priority DESC'
-    # ↑ JQL für Pickup-Vorschläge, wenn nichts in Bearbeitung ist. Nicht gesetzt = Fallback aus.
+    # ↑ Wenn in_progress_jql 0 Treffer liefert, werden bis zu 10 Tickets aus
+    #   suggestions_jql als Pickup-Vorschläge ausgegeben. Beide leer = Fallback aus.
 
   confluence:
     enabled: true

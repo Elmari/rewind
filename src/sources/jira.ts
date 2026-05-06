@@ -148,20 +148,34 @@ export async function fetchJira(
 
   const open = await fetchJiraOpen(cfg, authHeader, user, ctx);
 
-  const hasActive =
-    cfg.active_projects.length > 0 &&
-    open.some((o) => {
-      const project = (o.details as { project?: string } | undefined)?.project;
-      return project ? cfg.active_projects.includes(project) : false;
-    });
-
   let suggestions: OpenItem[] = [];
-  if (!hasActive && cfg.suggestions_jql && cfg.active_projects.length > 0) {
-    ctx.log(`jira: no active ticket in [${cfg.active_projects.join(', ')}], fetching suggestions`);
-    suggestions = await fetchJiraSuggestions(cfg, authHeader, ctx);
+  if (cfg.in_progress_jql && cfg.suggestions_jql) {
+    const inProgressCount = await fetchJiraCount(cfg, cfg.in_progress_jql, authHeader, ctx);
+    if (inProgressCount === 0) {
+      ctx.log('jira: nothing in progress, fetching suggestions');
+      suggestions = await fetchJiraSuggestions(cfg, authHeader, ctx);
+    }
   }
 
   return { source: 'jira', activities, open, suggestions };
+}
+
+async function fetchJiraCount(
+  cfg: JiraConfig,
+  jql: string,
+  authHeader: Record<string, string>,
+  ctx: FetchContext,
+): Promise<number> {
+  try {
+    const search = await request<JiraSearchResponse>(`${cfg.base_url}/rest/api/2/search`, {
+      headers: { ...authHeader, accept: 'application/json' },
+      query: { jql, fields: 'summary', maxResults: 0 },
+    });
+    return search.total;
+  } catch (err) {
+    ctx.warn('jira: in-progress count fetch failed', err);
+    return 1; // fail-safe: assume something is in progress, skip suggestions
+  }
 }
 
 async function fetchJiraSuggestions(
