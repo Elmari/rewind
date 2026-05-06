@@ -84,6 +84,8 @@ function detailSuffix(details: Record<string, unknown> | undefined): string {
   if (typeof details.status === 'string') parts.push(`status=${details.status}`);
   if (typeof details.resolution === 'string') parts.push(`resolution=${details.resolution}`);
   if (typeof details.project === 'string') parts.push(`project=${details.project}`);
+  if (typeof details.from === 'string') parts.push(`from=${details.from}`);
+  if (typeof details.to === 'string') parts.push(`to=${details.to}`);
   if (details.unpushed === true) parts.push('unpushed');
   return parts.length ? `  (${parts.join(', ')})` : '';
 }

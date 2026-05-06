@@ -17,8 +17,8 @@ interface BbPullRequest {
   createdDate: number;
   updatedDate: number;
   closedDate?: number;
-  fromRef: { repository: { slug: string; project: { key: string }; name: string } };
-  toRef: { repository: { slug: string; project: { key: string } } };
+  fromRef: { repository: { slug: string; project: { key: string }; name: string }; displayId?: string };
+  toRef: { repository: { slug: string; project: { key: string } }; displayId?: string };
   author: { user: { name: string; slug: string } };
   reviewers: Array<{ user: { name: string; slug: string }; status?: string }>;
   links: { self?: Array<{ href: string }> };
@@ -70,24 +70,39 @@ export async function fetchBitbucket(
     const closedIso = pr.closedDate ? new Date(pr.closedDate).toISOString() : undefined;
 
     if (rangeContains(range, createdIso) && (!user || pr.author.user.slug === user || pr.author.user.name === user)) {
+      const branchInfo = ` [${pr.fromRef.displayId || 'unknown'} -> ${pr.toRef.displayId || 'unknown'}]`;
       activities.push({
         source: 'bitbucket',
         type: 'pr-opened',
         timestamp: createdIso,
-        title: `${repoFull} #${pr.id}: ${pr.title}`,
+        title: `${repoFull} #${pr.id}: ${pr.title}${branchInfo}`,
         url,
-        details: { repo: repoFull, prId: pr.id, state: pr.state },
+        details: { 
+          repo: repoFull, 
+          prId: pr.id, 
+          state: pr.state,
+          from: pr.fromRef.displayId,
+          to: pr.toRef.displayId
+        },
       });
     }
 
     if (closedIso && rangeContains(range, closedIso) && pr.state !== 'OPEN') {
+      const branchInfo = ` [${pr.fromRef.displayId || 'unknown'} -> ${pr.toRef.displayId || 'unknown'}]`;
       activities.push({
         source: 'bitbucket',
         type: pr.state === 'MERGED' ? 'pr-merged' : 'pr-declined',
         timestamp: closedIso,
-        title: `${repoFull} #${pr.id}: ${pr.title}`,
+        title: `${repoFull} #${pr.id}: ${pr.title}${branchInfo}`,
         url,
-        details: { repo: repoFull, prId: pr.id, state: pr.state, mineAsAuthor: pr.author.user.slug === user },
+        details: { 
+          repo: repoFull, 
+          prId: pr.id, 
+          state: pr.state, 
+          mineAsAuthor: pr.author.user.slug === user,
+          from: pr.fromRef.displayId,
+          to: pr.toRef.displayId
+        },
       });
     }
 
