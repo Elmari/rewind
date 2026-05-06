@@ -50,6 +50,7 @@ export interface SourceResult {
   source: SourceName;
   activities: Activity[];
   open?: OpenItem[];
+  suggestions?: OpenItem[];
   agenda?: AgendaItem[];
   error?: string;
 }

@@ -11,6 +11,8 @@ const JiraSchema = z.object({
   base_url: z.string().url(),
   pat_env: z.string().default('JIRA_PAT'),
   auth_method: AuthMethodSchema,
+  active_projects: z.array(z.string()).default([]),
+  suggestions_jql: z.string().optional(),
 });
 
 const ConfluenceSchema = z.object({
@@ -207,6 +209,9 @@ sources:
     base_url: https://jira.firma.de
     pat_env: JIRA_PAT
     auth_method: bearer        # bearer (default) | basic — switch to basic if your server rejects Bearer PATs
+    active_projects: []                # Projektkeys, in denen ein zugewiesenes offenes Ticket als "in Bearbeitung" zählt — z.B. ['SQDPO']. Leer = Vorschlags-Fallback aus.
+    # suggestions_jql: 'project = SQDPO AND status = "Ready for Dev" ORDER BY priority DESC'
+    # ↑ JQL für Pickup-Vorschläge, wenn nichts in Bearbeitung ist. Nicht gesetzt = Fallback aus.
 
   confluence:
     enabled: true

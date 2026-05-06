@@ -3,15 +3,18 @@ import type { SourceResult } from '../types.js';
 
 const MAX_PER_SOURCE = 50;
 const MAX_OPEN_PER_SOURCE = 25;
+const MAX_SUGGESTIONS_PER_SOURCE = 10;
 const MAX_AGENDA_PER_SOURCE = 25;
 const MAX_TITLE_LEN = 150;
 
 export interface CondensedInput {
   activities: string;
   openItems: string;
+  suggestions: string;
   agenda: string;
   hasActivities: boolean;
   hasOpen: boolean;
+  hasSuggestions: boolean;
   hasAgenda: boolean;
 }
 
@@ -49,6 +52,23 @@ export function condenseForLlm(results: SourceResult[]): CondensedInput {
     openBlocks.push(lines.join('\n'));
   }
 
+  const suggestionBlocks: string[] = [];
+  for (const r of results) {
+    const sugg = r.suggestions ?? [];
+    if (sugg.length === 0) continue;
+    const lines: string[] = [];
+    lines.push(`## ${r.source}`);
+    for (const s of sugg.slice(0, MAX_SUGGESTIONS_PER_SOURCE)) {
+      const status = s.status ? ` [${s.status}]` : '';
+      const title = s.title.length > MAX_TITLE_LEN ? s.title.slice(0, MAX_TITLE_LEN) + '…' : s.title;
+      lines.push(`- [${s.type}] ${title}${status}`);
+    }
+    if (sugg.length > MAX_SUGGESTIONS_PER_SOURCE) {
+      lines.push(`- (… ${sugg.length - MAX_SUGGESTIONS_PER_SOURCE} weitere ${r.source}-Einträge ausgelassen)`);
+    }
+    suggestionBlocks.push(lines.join('\n'));
+  }
+
   const agendaBlocks: string[] = [];
   for (const r of results) {
     const agenda = r.agenda ?? [];
@@ -70,9 +90,11 @@ export function condenseForLlm(results: SourceResult[]): CondensedInput {
   return {
     activities: activityBlocks.join('\n\n'),
     openItems: openBlocks.join('\n\n'),
+    suggestions: suggestionBlocks.join('\n\n'),
     agenda: agendaBlocks.join('\n\n'),
     hasActivities: activityBlocks.length > 0,
     hasOpen: openBlocks.length > 0,
+    hasSuggestions: suggestionBlocks.length > 0,
     hasAgenda: agendaBlocks.length > 0,
   };
 }

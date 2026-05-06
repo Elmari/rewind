@@ -57,6 +57,25 @@ export function renderMarkdownBody(_range: DateRange, results: SourceResult[]): 
     lines.push(...openLines);
   }
 
+  const suggestionLines: string[] = [];
+  for (const r of results) {
+    const sugg = r.suggestions ?? [];
+    if (sugg.length === 0) continue;
+    const label = SOURCE_LABELS[r.source] ?? r.source;
+    suggestionLines.push(`### ${label}`);
+    for (const s of sugg) {
+      const title = s.url ? `[${s.title}](${s.url})` : s.title;
+      const status = s.status ? ` *(${s.status})*` : '';
+      suggestionLines.push(`- ${typeLabel(s.type)} — ${title}${status}`);
+    }
+    suggestionLines.push('');
+  }
+  if (suggestionLines.length) {
+    lines.push('## Vorschläge');
+    lines.push('');
+    lines.push(...suggestionLines);
+  }
+
   const agendaLines: string[] = [];
   for (const r of results) {
     const agenda = r.agenda ?? [];
@@ -108,6 +127,7 @@ function typeLabel(t: string): string {
     case 'task-created': return 'Task (neu)';
     case 'issue-closed': return 'Issue (zu)';
     case 'open-issue': return 'Ticket';
+    case 'suggested-issue': return 'Vorschlag';
     case 'open-pr-mine': return 'PR (mein)';
     case 'open-pr-review': return 'PR-Review nötig';
     case 'open-mr-mine': return 'MR (mein)';

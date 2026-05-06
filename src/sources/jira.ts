@@ -147,7 +147,47 @@ export async function fetchJira(
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
   const open = await fetchJiraOpen(cfg, authHeader, user, ctx);
-  return { source: 'jira', activities, open };
+
+  const hasActive =
+    cfg.active_projects.length > 0 &&
+    open.some((o) => {
+      const project = (o.details as { project?: string } | undefined)?.project;
+      return project ? cfg.active_projects.includes(project) : false;
+    });
+
+  let suggestions: OpenItem[] = [];
+  if (!hasActive && cfg.suggestions_jql && cfg.active_projects.length > 0) {
+    ctx.log(`jira: no active ticket in [${cfg.active_projects.join(', ')}], fetching suggestions`);
+    suggestions = await fetchJiraSuggestions(cfg, authHeader, ctx);
+  }
+
+  return { source: 'jira', activities, open, suggestions };
+}
+
+async function fetchJiraSuggestions(
+  cfg: JiraConfig,
+  authHeader: Record<string, string>,
+  ctx: FetchContext,
+): Promise<OpenItem[]> {
+  if (!cfg.suggestions_jql) return [];
+  try {
+    const search = await request<JiraSearchResponse>(`${cfg.base_url}/rest/api/2/search`, {
+      headers: { ...authHeader, accept: 'application/json' },
+      query: { jql: cfg.suggestions_jql, fields: 'summary,status,updated,project', maxResults: 10 },
+    });
+    return search.issues.map((issue) => ({
+      source: 'jira' as const,
+      type: 'suggested-issue',
+      title: `${issue.key}: ${issue.fields.summary}`,
+      url: `${cfg.base_url}/browse/${issue.key}`,
+      status: issue.fields.status.name,
+      updated: issue.fields.updated,
+      details: { project: issue.fields.project.key, key: issue.key },
+    }));
+  } catch (err) {
+    ctx.warn('jira: suggestions fetch failed', err);
+    return [];
+  }
 }
 
 async function fetchJiraOpen(
