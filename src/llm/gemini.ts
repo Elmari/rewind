@@ -33,7 +33,6 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig): Promise<s
     systemInstruction: { parts: [{ text: prompt.systemInstruction }] },
     generationConfig: {
       temperature: 0.3,
-      maxOutputTokens: 4096,
     },
   });
 
