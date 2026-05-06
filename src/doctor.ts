@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import type { Config } from './config.js';
 import { atlassianAuthHeader, basic, request } from './http.js';
 import { acquireGraphToken } from './auth/msal.js';
+import { resolveEndpoint } from './llm/gemini.js';
 import { expandHome } from './path.js';
 import type { SourceName } from './types.js';
 import { SOURCE_EMOJI, banner, c, footer, isTty } from './ui.js';
@@ -270,7 +271,7 @@ async function pingLlm(cfg: Config): Promise<DoctorResult> {
       ...c.custom_headers,
     };
     const res = await request<{ candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> }>(
-      c.endpoint,
+      resolveEndpoint(c),
       { method: 'POST', headers, body },
     );
     const text = res.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? '';

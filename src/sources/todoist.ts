@@ -31,8 +31,9 @@ interface TodoistCompletedResponse {
   projects: Record<string, TodoistProject>;
 }
 
-const REST_BASE = 'https://api.todoist.com/rest/v2';
-const SYNC_BASE = 'https://api.todoist.com/sync/v9';
+function url(cfg: TodoistConfig, key: 'projects' | 'tasks' | 'completed'): string {
+  return `${cfg.base_url.replace(/\/$/, '')}${cfg.paths[key]}`;
+}
 
 export async function fetchTodoist(
   range: DateRange,
@@ -43,7 +44,7 @@ export async function fetchTodoist(
   const headers = { authorization: `Bearer ${apiToken}`, accept: 'application/json' };
   const activities: Activity[] = [];
 
-  const projectIds = await resolveProjectIds(cfg.projects, headers, ctx);
+  const projectIds = await resolveProjectIds(cfg, cfg.projects, headers, ctx);
   if (cfg.projects.length > 0 && projectIds.length === 0) {
     ctx.warn(`todoist: no matching projects for ${cfg.projects.join(', ')}`);
     return { source: 'todoist', activities: [] };
@@ -52,7 +53,7 @@ export async function fetchTodoist(
   const completedScope = projectIds.length === 0 ? [undefined] : projectIds;
   for (const projectId of completedScope) {
     try {
-      const completed = await request<TodoistCompletedResponse>(`${SYNC_BASE}/completed/get_all`, {
+      const completed = await request<TodoistCompletedResponse>(url(cfg, 'completed'), {
         headers,
         query: {
           since: range.since.toISOString().replace(/\.\d{3}Z$/, 'Z'),
@@ -63,7 +64,7 @@ export async function fetchTodoist(
       });
       for (const item of completed.items) {
         if (!rangeContains(range, item.completed_at)) continue;
-        const projectName = completed.projects[item.project_id]?.name ?? '';
+        const projectName = completed.projects?.[item.project_id]?.name ?? '';
         activities.push({
           source: 'todoist',
           type: 'task-completed',
@@ -79,7 +80,7 @@ export async function fetchTodoist(
 
   if (cfg.include_created) {
     try {
-      const tasks = await request<TodoistTask[]>(`${REST_BASE}/tasks`, { headers });
+      const tasks = await request<TodoistTask[]>(url(cfg, 'tasks'), { headers });
       const projectFilter = projectIds.length ? new Set(projectIds) : null;
       for (const t of tasks) {
         if (projectFilter && !projectFilter.has(t.project_id)) continue;
@@ -99,17 +100,18 @@ export async function fetchTodoist(
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-  const open = await fetchTodoistOpen(headers, projectIds, ctx);
+  const open = await fetchTodoistOpen(cfg, headers, projectIds, ctx);
   return { source: 'todoist', activities, open };
 }
 
 async function fetchTodoistOpen(
+  cfg: TodoistConfig,
   headers: Record<string, string>,
   projectIds: string[],
   ctx: FetchContext,
 ): Promise<OpenItem[]> {
   try {
-    const tasks = await request<TodoistTask[]>(`${REST_BASE}/tasks`, { headers });
+    const tasks = await request<TodoistTask[]>(url(cfg, 'tasks'), { headers });
     const projectFilter = projectIds.length ? new Set(projectIds) : null;
     return tasks
       .filter((t) => !projectFilter || projectFilter.has(t.project_id))
@@ -129,13 +131,14 @@ async function fetchTodoistOpen(
 }
 
 async function resolveProjectIds(
+  cfg: TodoistConfig,
   names: string[],
   headers: Record<string, string>,
   ctx: FetchContext,
 ): Promise<string[]> {
   if (names.length === 0) return [];
   try {
-    const projects = await request<TodoistProject[]>(`${REST_BASE}/projects`, { headers });
+    const projects = await request<TodoistProject[]>(url(cfg, 'projects'), { headers });
     const wanted = new Set(names.map((n) => n.toLowerCase()));
     const matched = projects.filter((p) => wanted.has(p.name.toLowerCase()));
     const missing = names.filter((n) => !matched.some((m) => m.name.toLowerCase() === n.toLowerCase()));

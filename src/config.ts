@@ -59,6 +59,18 @@ const JenkinsSchema = z.object({
 const TodoistSchema = z.object({
   enabled: z.boolean().default(false),
   api_token_env: z.string().default('TODOIST_TOKEN'),
+  base_url: z.string().url().default('https://api.todoist.com'),
+  paths: z
+    .object({
+      projects: z.string().default('/api/v1/projects'),
+      tasks: z.string().default('/api/v1/tasks'),
+      completed: z.string().default('/api/v1/tasks/completed/by_completion_date'),
+    })
+    .default({
+      projects: '/api/v1/projects',
+      tasks: '/api/v1/tasks',
+      completed: '/api/v1/tasks/completed/by_completion_date',
+    }),
   projects: z.array(z.string()).default([]),
   include_created: z.boolean().default(false),
 });
@@ -90,6 +102,7 @@ const LlmSchema = z.object({
   endpoint: z.string().url(),
   api_key_env: z.string().default('GEMINI_API_KEY'),
   model: z.string().default('gemini-2.5-flash'),
+  region: z.string().optional(),
   prompt_language: z.enum(['de', 'en']).default('de'),
   custom_headers: z.record(z.string()).optional(),
 });
@@ -252,6 +265,11 @@ sources:
   todoist:
     enabled: false
     api_token_env: TODOIST_TOKEN
+    base_url: https://api.todoist.com
+    paths:                             # endpoint paths — defaults to v1 unified API
+      projects: /api/v1/projects       # legacy alternative: /rest/v2/projects
+      tasks: /api/v1/tasks             # legacy alternative: /rest/v2/tasks
+      completed: /api/v1/tasks/completed/by_completion_date  # legacy alt: /sync/v9/completed/get_all
     projects:                          # whitelist by project NAME (case-insensitive); empty = all
       - Work
     include_created: false             # also include tasks created in range (not just completed)
@@ -272,9 +290,10 @@ sources:
     max_chats: 50                      # how many recent chats to scan
 
 llm:
-  endpoint: https://corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
+  endpoint: https://{region}-corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
   api_key_env: GEMINI_API_KEY
   model: gemini-2.5-flash
+  region: europe-west1               # substituted into {region} placeholder in endpoint
   prompt_language: de
   # custom_headers:
   #   X-Company-Source: rewind

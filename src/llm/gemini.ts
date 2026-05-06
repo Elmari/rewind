@@ -2,6 +2,11 @@ import type { LlmConfig } from '../config.js';
 import { request } from '../http.js';
 import type { PromptResult } from './prompt.js';
 
+export function resolveEndpoint(cfg: LlmConfig): string {
+  if (!cfg.region) return cfg.endpoint;
+  return cfg.endpoint.replace(/\{region\}/g, cfg.region);
+}
+
 interface GeminiResponse {
   candidates?: Array<{
     content?: { parts?: Array<{ text?: string }> };
@@ -27,7 +32,7 @@ export async function summarize(prompt: PromptResult, cfg: LlmConfig, apiKey: st
     ...cfg.custom_headers,
   };
 
-  const res = await request<GeminiResponse>(cfg.endpoint, {
+  const res = await request<GeminiResponse>(resolveEndpoint(cfg), {
     method: 'POST',
     headers,
     body,

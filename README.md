@@ -309,14 +309,21 @@ Builds ohne Match werden verworfen — d. h. das Mega-Build-Log eures Master-Job
    todoist:
      enabled: true
      api_token_env: TODOIST_TOKEN
+     base_url: https://api.todoist.com
+     paths:                                  # endpoints — defaults zur v1 unified API
+       projects: /api/v1/projects
+       tasks: /api/v1/tasks
+       completed: /api/v1/tasks/completed/by_completion_date
      projects:                               # Whitelist nach Projekt-NAME (case-insensitive)
        - Work                                # leer = alle Projekte
      include_created: false                  # true = auch Tasks zählen, die du gestern angelegt hast
    ```
 
 **Was die Source liefert:**
-- **Erledigte Tasks** im Zeitraum (über Sync-API `/completed/get_all`).
+- **Erledigte Tasks** im Zeitraum (über `paths.completed`).
 - Optional: in dem Zeitraum **angelegte** Tasks, falls `include_created: true`.
+
+**API-Endpoints sind konfigurierbar.** Defaults zeigen auf die v1 unified API (`/api/v1/...`). Falls Todoist die wieder ändert oder dein Tenant noch alte Endpoints braucht: `paths` überschreiben — z. B. mit den Legacy-Pfaden `/rest/v2/projects`, `/rest/v2/tasks`, `/sync/v9/completed/get_all`.
 
 Projekte werden über den Namen aufgelöst (kein Project-ID-Hardcoding). Falls ein Projektname nicht gefunden wird, gibt's eine Warnung im Log, der Rest läuft.
 
@@ -393,9 +400,10 @@ rewind login teams
 
 ```yaml
 llm:
-  endpoint: https://corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
+  endpoint: https://{region}-corp-llm-proxy.firma.de/v1/models/gemini-2.5-flash:generateContent
   api_key_env: GEMINI_API_KEY
   model: gemini-2.5-flash
+  region: europe-west1           # wird in {region}-Platzhalter im endpoint substituiert
   prompt_language: de            # 'en' für englische Bullet-Liste
   # custom_headers:              # optional: zusätzliche Header für den Corp-Proxy
   #   x-tenant-id: 'team-x'
@@ -407,6 +415,8 @@ GEMINI_API_KEY=<key>
 ```
 
 `rewind` postet im Standard-Gemini-Body-Format mit getrennter `systemInstruction` (Daily-Style-Anweisungen + Few-Shot-Beispiel, identisch über alle Calls) und `contents` (deine Aktivitäten von gestern). Auth läuft über den `x-api-key`-Header.
+
+**`region`** wird als Template-Variable behandelt — überall, wo `{region}` im `endpoint` auftaucht, wird der Wert eingesetzt. Praktisch wenn euer Proxy regional getrennte Endpoints hat (`https://europe-west1-...`, `https://us-central1-...`). Wenn du keine Region brauchst: Feld weglassen, Endpoint ohne `{region}`-Platzhalter.
 
 **`custom_headers`** ist die Escape-Hatch, falls euer Proxy zusätzliche Header verlangt — z. B. einen Tenant-Identifier, On-Behalf-Of-Header oder ein zweites Auth-Token. Beliebige Key/Value-Paare, werden bei jedem LLM-Call mitgeschickt. Falls sich der Body-Shape selbst unterscheidet (z. B. OpenAI-kompatibel statt Gemini), ist `src/llm/gemini.ts` der einzige Ort, an dem das angepasst werden muss.
 
