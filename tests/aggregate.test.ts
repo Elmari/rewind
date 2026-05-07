@@ -107,6 +107,51 @@ test('aggregator: jira issue-touched seeds summary + status', () => {
   assert.equal(t.status, 'In Prüfung');
 });
 
+test('aggregator: title falls back to PR title when no Jira summary', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'bitbucket',
+      activities: [
+        {
+          source: 'bitbucket',
+          type: 'pr-opened',
+          timestamp: '2026-05-06T08:00:00Z',
+          title: 'PROJ/repo #50: PROJ-555 add login screen [feature/PROJ-555 -> develop]',
+          details: { repo: 'PROJ/repo', prId: 50, from: 'feature/PROJ-555', to: 'develop' },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets[0];
+  assert.equal(t.key, 'PROJ-555');
+  // PR title without ticket key prefix
+  assert.match(t.summary ?? '', /add login screen/);
+  assert.doesNotMatch(t.summary ?? '', /PROJ-555/);
+});
+
+test('aggregator: title falls back to commit subject when only commits present', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'git',
+      activities: [
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T08:00:00Z',
+          title: 'PROJ-777: refactor user auth',
+          details: { repo: 'r', hash: 'aaa', email: 'me@x' },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets[0];
+  assert.equal(t.key, 'PROJ-777');
+  assert.match(t.summary ?? '', /refactor user auth/);
+  assert.doesNotMatch(t.summary ?? '', /PROJ-777/);
+});
+
 test('aggregator: commits/prs without ticket id land in misc', () => {
   const results: SourceResult[] = [
     {

@@ -43,6 +43,15 @@ export function extractTicketKey(text: string | undefined): string | undefined {
   return m ? m[1] : undefined;
 }
 
+function stripKey(text: string, key: string): string {
+  // Remove the ticket key + common separators from the front of a title
+  // so we don't end up with "PROJ-1234 — PROJ-1234: add cache".
+  return text
+    .replace(new RegExp(`^\\s*\\[?${key}\\]?[:\\s\\-—]*`, 'i'), '')
+    .replace(new RegExp(`\\b${key}\\b[:\\s\\-—]*`, 'i'), '')
+    .trim();
+}
+
 export function matchStage(branch: string | undefined, rules: StageRule[]): string | undefined {
   if (!branch) return undefined;
   for (const r of rules) {
@@ -108,7 +117,7 @@ export function aggregateByTicket(results: SourceResult[], stages: StageRule[]):
     }
   }
 
-  // derive booleans
+  // derive booleans + title fallback
   for (const t of tickets.values()) {
     t.hasNewCode = t.localCommits.length > 0 || t.prsOpened.length > 0;
     const stageSet = new Set<string>();
@@ -117,6 +126,13 @@ export function aggregateByTicket(results: SourceResult[], stages: StageRule[]):
     }
     t.stagesReachedToday = [...stageSet];
     t.mergeOnly = !t.hasNewCode && t.prsMerged.length > 0;
+    if (!t.summary) {
+      const fallback =
+        t.prsOpened[0]?.title ||
+        t.localCommits[0]?.subject ||
+        t.prsMerged[0]?.title;
+      if (fallback) t.summary = stripKey(fallback, t.key);
+    }
   }
 
   // stable order: tickets sorted by key, misc by timestamp

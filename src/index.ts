@@ -43,6 +43,7 @@ program
   .option('--copy', 'copy result to clipboard', false)
   .option('--refresh', 'bypass cache', false)
   .option('--json', 'emit raw JSON instead of markdown', false)
+  .option('--debug', 'verbose logs + dump aggregator + LLM prompt to stderr', false)
   .action(async (opts) => {
     await runMain(opts);
   });
@@ -112,9 +113,14 @@ interface MainOpts {
   copy: boolean;
   refresh: boolean;
   json: boolean;
+  debug: boolean;
 }
 
 async function runMain(opts: MainOpts): Promise<void> {
+  if (opts.debug) {
+    process.env.LOG_LEVEL = 'debug';
+    log.level = 'debug';
+  }
   let cfg;
   try {
     cfg = loadConfig(opts.config).config;
@@ -149,6 +155,18 @@ async function runMain(opts: MainOpts): Promise<void> {
   );
   const fetchSeconds = (Date.now() - fetchStart) / 1000;
 
+  // Always-visible per-source counts so the user notices when a source returns 0
+  const stats = results
+    .map((r) => `${r.source}=${r.activities.length}${r.error ? '!' : ''}`)
+    .join(' ');
+  process.stderr.write(`  sources: ${stats}\n`);
+  const gitResult = results.find((r) => r.source === 'git');
+  if (gitResult && gitResult.activities.length === 0 && !gitResult.error) {
+    process.stderr.write(
+      '  hint: 0 git commits — check identity.git_emails (run --debug --refresh to see scanned repos and emails)\n',
+    );
+  }
+
   if (opts.json) {
     console.log(JSON.stringify(results, null, 2));
     return;
@@ -164,11 +182,21 @@ async function runMain(opts: MainOpts): Promise<void> {
       process.exit(1);
     }
     const condensed = condenseForLlm(results, cfg.defaults.stages);
+    if (opts.debug) {
+      process.stderr.write('\n=== AGGREGATOR OUTPUT (activities block) ===\n');
+      process.stderr.write(condensed.activities || '(empty)');
+      process.stderr.write('\n=== END AGGREGATOR OUTPUT ===\n\n');
+    }
     if (!condensed.hasActivities && !condensed.hasOpen && !condensed.hasAgenda) {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;
     } else {
       const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed, opts.today);
+      if (opts.debug) {
+        process.stderr.write('\n=== LLM USER PROMPT ===\n');
+        process.stderr.write(prompt.userPrompt);
+        process.stderr.write('\n=== END LLM USER PROMPT ===\n\n');
+      }
       const llmStart = Date.now();
       const summary = await spinner('asking Gemini', () => summarize(prompt, cfg.llm!));
       llmSeconds = (Date.now() - llmStart) / 1000;
