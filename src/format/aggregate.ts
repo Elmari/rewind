@@ -13,7 +13,7 @@ export interface TicketAggregate {
   prsOpened: Array<{ repo: string; id: number; title: string; fromBranch?: string; toBranch?: string; url?: string }>;
   prsMerged: Array<{ repo: string; id: number; title: string; fromBranch?: string; toBranch?: string; stageReached?: string; url?: string }>;
   prsDeclined: Array<{ repo: string; id: number; title: string; url?: string }>;
-  prsReviewed: Array<{ repo: string; id: number; action: string }>;
+  prsReviewed: Array<{ repo: string; id: number; title: string; action: string }>;
   prCommentsCount: number;
   statusTransitions: Array<{ from?: string; to?: string; ts: string; resolution?: string }>;
   worklogs: Array<{ timeSpent?: string; comment?: string; ts: string }>;
@@ -206,7 +206,7 @@ function handleBitbucket(
       t.prsDeclined.push({ repo, id: prId, title: titleOnly });
       break;
     case 'pr-review':
-      t.prsReviewed.push({ repo, id: prId, action: (a.details?.action as string | undefined) ?? 'reviewed' });
+      t.prsReviewed.push({ repo, id: prId, title: titleOnly, action: (a.details?.action as string | undefined) ?? 'reviewed' });
       break;
     case 'pr-comment':
       t.prCommentsCount++;
@@ -289,13 +289,15 @@ export function renderAggregateForPrompt(agg: AggregateResult): string {
       lines.push(`  prs-merged (${t.prsMerged.length}):`);
       for (const p of t.prsMerged) {
         const stage = p.stageReached ? ` ⇒ stage: ${p.stageReached}` : '';
-        lines.push(`    - ${p.repo}#${p.id}: [${p.fromBranch ?? '?'} → ${p.toBranch ?? '?'}]${stage}`);
+        lines.push(`    - ${p.repo}#${p.id}: ${p.title} [${p.fromBranch ?? '?'} → ${p.toBranch ?? '?'}]${stage}`);
       }
     }
     if (t.prsDeclined.length) lines.push(`  prs-declined: ${t.prsDeclined.length}`);
     if (t.prsReviewed.length) {
-      const actions = t.prsReviewed.map((r) => `${r.repo}#${r.id}:${r.action}`).join(', ');
-      lines.push(`  prs-reviewed-by-me: ${actions}`);
+      lines.push(`  prs-reviewed-by-me (${t.prsReviewed.length}):`);
+      for (const r of t.prsReviewed) {
+        lines.push(`    - ${r.repo}#${r.id}: ${r.title} (${r.action})`);
+      }
     }
     if (t.prCommentsCount) lines.push(`  pr-comments-by-me: ${t.prCommentsCount}`);
     if (t.statusTransitions.length) {
