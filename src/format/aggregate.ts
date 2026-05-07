@@ -310,9 +310,29 @@ export function renderAggregateForPrompt(agg: AggregateResult): string {
     lines.push(`  facts: hasNewCode=${t.hasNewCode}, mergeOnly=${t.mergeOnly}, stagesReachedToday=[${t.stagesReachedToday.join(', ')}]`);
     lines.push('');
   }
-  if (agg.misc.length) {
-    lines.push('### misc (no ticket-id)');
-    for (const m of agg.misc) {
+  // Group ticketless git commits by repo so the LLM produces one bullet per repo
+  // ("lokale Commits in <repo>: …") instead of a flat undifferentiated list.
+  const gitMisc = agg.misc.filter((m) => m.source === 'git' && m.type === 'commit');
+  const otherMisc = agg.misc.filter((m) => !(m.source === 'git' && m.type === 'commit'));
+  if (gitMisc.length) {
+    const byRepo = new Map<string, string[]>();
+    for (const m of gitMisc) {
+      const repo = (m.details?.repo as string | undefined) ?? 'unknown';
+      const list = byRepo.get(repo) ?? [];
+      list.push(m.title);
+      byRepo.set(repo, list);
+    }
+    lines.push('### local-commits-without-ticket-key (group by repo)');
+    lines.push('  Render ONE bullet per repo. Summarize the subjects in keywords (3-6 words).');
+    for (const [repo, subjects] of byRepo) {
+      lines.push(`- repo=${repo} (${subjects.length} commits):`);
+      for (const s of subjects) lines.push(`    - ${s}`);
+    }
+    lines.push('');
+  }
+  if (otherMisc.length) {
+    lines.push('### misc (other ticketless activity)');
+    for (const m of otherMisc) {
       lines.push(`- ${m.ts.slice(11, 16)} [${m.source}/${m.type}] ${m.title}`);
     }
   }

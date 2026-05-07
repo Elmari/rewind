@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { aggregateByTicket, extractTicketKey, matchStage } from '../src/format/aggregate.ts';
+import { aggregateByTicket, extractTicketKey, matchStage, renderAggregateForPrompt } from '../src/format/aggregate.ts';
 import type { StageRule } from '../src/config.ts';
 import type { SourceResult } from '../src/types.ts';
 
@@ -150,6 +150,44 @@ test('aggregator: title falls back to commit subject when only commits present',
   assert.equal(t.key, 'PROJ-777');
   assert.match(t.summary ?? '', /refactor user auth/);
   assert.doesNotMatch(t.summary ?? '', /PROJ-777/);
+});
+
+test('renderAggregateForPrompt: misc git commits are grouped by repo', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'git',
+      activities: [
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T08:00:00Z',
+          title: 'chore: bump deps',
+          details: { repo: 'rewind', hash: 'a1', email: 'me@x' },
+        },
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T09:00:00Z',
+          title: 'docs: add readme section',
+          details: { repo: 'rewind', hash: 'a2', email: 'me@x' },
+        },
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T10:00:00Z',
+          title: 'fix lint',
+          details: { repo: 'siesta', hash: 'b1', email: 'me@x' },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const out = renderAggregateForPrompt(agg);
+  assert.match(out, /local-commits-without-ticket-key/);
+  assert.match(out, /repo=rewind \(2 commits\)/);
+  assert.match(out, /repo=siesta \(1 commits\)/);
+  assert.match(out, /bump deps/);
+  assert.match(out, /fix lint/);
 });
 
 test('aggregator: commits/prs without ticket id land in misc', () => {
