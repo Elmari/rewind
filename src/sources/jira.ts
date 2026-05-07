@@ -22,7 +22,7 @@ interface JiraIssue {
   };
   changelog?: {
     histories: Array<{
-      author: { name?: string; key?: string; emailAddress?: string; displayName?: string };
+      author: { name?: string; key?: string; accountId?: string; emailAddress?: string; displayName?: string };
       created: string;
       items: Array<{ field: string; fromString?: string; toString?: string }>;
     }>;
@@ -31,7 +31,7 @@ interface JiraIssue {
 
 interface JiraWorklogResponse {
   worklogs: Array<{
-    author: { name?: string; key?: string; emailAddress?: string };
+    author: { name?: string; key?: string; accountId?: string; emailAddress?: string; displayName?: string };
     started: string;
     timeSpent: string;
     timeSpentSeconds: number;
@@ -237,9 +237,20 @@ async function fetchJiraOpen(
   }
 }
 
-function matchesUser(author: { name?: string; key?: string; emailAddress?: string }, user?: string): boolean {
-  if (!user) return true;
-  return author.name === user || author.key === user || author.emailAddress === user;
+function matchesUser(
+  author: { name?: string; key?: string; accountId?: string; emailAddress?: string; displayName?: string },
+  user?: string,
+): boolean {
+  // Fail closed: without a configured user identifier we can't tell who initiated an
+  // event, so we'd rather miss it than attribute someone else's action to the user.
+  if (!user) return false;
+  return (
+    author.name === user ||
+    author.key === user ||
+    author.accountId === user ||
+    author.emailAddress === user ||
+    author.displayName === user
+  );
 }
 
 /**
