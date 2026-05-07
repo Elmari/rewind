@@ -1,12 +1,12 @@
 # rewind
 
-> Was hab ich gestern eigentlich gemacht — woran bin ich aktuell dran — und was steht heute an?
+> What did I actually do yesterday — what am I currently working on — and what's on for today?
 
-`rewind` sammelt aus Jira, Confluence, Bitbucket, GitLab, GitHub, lokalen Git-Repos, Jenkins, Todoist, Outlook und Teams **drei** Sichten zusammen: (a) Aktivitäten vom Vortag, (b) aktuell offene Tickets/PRs/Tasks und (c) den heutigen Kalender. Alles geht an einen (Unternehmens-)Gemini, der eine **zweigeteilte** Daily-Standup-Zusammenfassung erzeugt: "Gestern …" + "Heute …" (mit smartem Merge aus offener Arbeit + Terminen).
+`rewind` pulls **three** views together from Jira, Confluence, Bitbucket, GitLab, GitHub, local Git repos, Jenkins, Todoist, Outlook and Teams: (a) yesterday's activity, (b) currently open tickets/PRs/tasks, and (c) today's calendar. Everything is sent to a (corporate) Gemini, which produces a **two-part** daily-standup summary: "Yesterday …" + "Today …" (with a smart merge of open work + meetings).
 
-Gedacht für die fünf Minuten vor dem Daily, in denen man sich sonst durch sieben Tabs klickt.
+Built for the five minutes before standup that you'd otherwise spend clicking through seven tabs.
 
-## Wie es funktioniert
+## How it works
 
 ```
 ┌──────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ ┌─────┐ ┌────────┐ ┌───────┐
@@ -15,93 +15,93 @@ Gedacht für die fünf Minuten vor dem Daily, in denen man sich sonst durch sieb
    └──────────┴───────────┴────────────┼─────────┴────────┴───────────┘
                                        ▼
                               ┌─────────────────┐
-                              │  normalisierte  │
+                              │   normalized    │
                               │   Activity[]    │
                               └────────┬────────┘
                                        ▼
                               ┌─────────────────┐
-                              │  Gemini-Prompt  │
-                              │   (Corp-Proxy)  │
+                              │  Gemini prompt  │
+                              │  (corp proxy)   │
                               └────────┬────────┘
                                        ▼
                               ┌─────────────────┐
-                              │ Daily-Markdown  │
-                              │  → stdout/Clip  │
+                              │ daily markdown  │
+                              │  → stdout/clip  │
                               └─────────────────┘
 ```
 
-Jede Quelle wird parallel angefragt; eine fehlerhafte Quelle bricht den Lauf nicht ab. Roh-Aktivitäten werden pro Tag in `~/.cache/rewind/<YYYY-MM-DD>.json` gecacht — das LLM-Ergebnis nicht (Re-Runs am Prompt sind so billig).
+Each source is queried in parallel; a failing source does not abort the run. Raw activities are cached per day in `~/.cache/rewind/<YYYY-MM-DD>.json` — the LLM result is not cached (re-running the prompt is cheap).
 
 ## Quick Start
 
 ```bash
 git clone <repo> rewind && cd rewind
-npm install                           # KEIN script-execution (siehe .npmrc), reine Dep-Installation
-npm run prepare                       # baut dist/ + installiert Husky-Hooks (nur unsere eigenen Scripts)
-npm link                              # macht `rewind` global verfügbar
+npm install                           # NO script execution (see .npmrc), pure dep install
+npm run prepare                       # builds dist/ + installs Husky hooks (only our own scripts)
+npm link                              # makes `rewind` globally available
 
-rewind config init                    # legt ~/.config/rewind/config.yaml an
-cp .env.example .env                  # PATs + GEMINI_API_KEY eintragen
+rewind config init                    # creates ~/.config/rewind/config.yaml
+cp .env.example .env                  # fill in PATs + GEMINI_API_KEY
 
-# Config anpassen, dann
-rewind --no-llm --sources git         # erstmal git allein testen
-rewind                                # voller Lauf für gestern (Mo holt Freitag)
+# tweak config, then
+rewind --no-llm --sources git         # try git alone first
+rewind                                # full run for yesterday (Mon picks up Friday)
 ```
 
-### Von überall ausführen
+### Run from anywhere
 
-`npm link` registriert `rewind` global, aber Secrets werden standardmäßig nur in der aktuellen Arbeits-Directory gesucht (`./.env`). Damit du `rewind` in jedem beliebigen Verzeichnis aufrufen kannst, leg deine `.env` an einem **globalen** Ort ab — `rewind` lädt sie in dieser Reihenfolge (erster Treffer pro Variable gewinnt):
+`npm link` registers `rewind` globally, but secrets are by default only looked up in the current working directory (`./.env`). To call `rewind` from any directory, put your `.env` in a **global** location — `rewind` loads them in this order (first hit per variable wins):
 
-1. `$REWIND_ENV` (Pfad in dieser Env-Variable)
-2. `~/.config/rewind/.env` (empfohlen — analog zur `config.yaml`)
-3. `./.env` (Fallback fürs Repo-Verzeichnis)
+1. `$REWIND_ENV` (path stored in this env var)
+2. `~/.config/rewind/.env` (recommended — analogous to `config.yaml`)
+3. `./.env` (fallback for the repo directory)
 
 ```bash
-# einmalig
+# one-time
 mkdir -p ~/.config/rewind
 mv .env ~/.config/rewind/.env
 
-# danach läuft rewind aus jedem Verzeichnis
+# afterwards rewind runs from any directory
 cd ~/Downloads && rewind doctor
 ```
 
-Die `config.yaml` lebt sowieso schon global unter `~/.config/rewind/config.yaml` (oder über `$REWIND_CONFIG`).
+`config.yaml` already lives globally under `~/.config/rewind/config.yaml` (or via `$REWIND_CONFIG`).
 
-> **Hinweis zur Sicherheit**: Das Repo enthält ein `.npmrc` mit `ignore-scripts=true`.
-> Dadurch laufen beim `npm install` **keine** `pre`/`post`/`install`-Scripts von Dependencies — die häufigste Einfallstür für npm-Supply-Chain-Angriffe (shai-hulud, es5-ext, …). Unser eigener Build läuft dann manuell via `npm run prepare`. Wenn du dem Repo selbst absolut traust, kannst du das setting in `.npmrc` lockern.
+> **Security note**: the repo ships with a `.npmrc` that has `ignore-scripts=true`.
+> This means `npm install` runs **no** `pre`/`post`/`install` scripts of dependencies — the most common entry point for npm supply-chain attacks (shai-hulud, es5-ext, …). Our own build then runs manually via `npm run prepare`. If you fully trust the repo itself, you can relax that setting in `.npmrc`.
 
 ## CLI
 
-| Aufruf | Effekt |
+| Invocation | Effect |
 |---|---|
-| `rewind` | Gestern (smart: Mo holt Freitag) |
-| `rewind --date 2026-05-04` | Spezifischer Tag |
-| `rewind --since 2026-05-01 --until 2026-05-04` | Zeitraum |
-| `rewind --sources jira,git` | **Opt-in**: nur ausgewählte Quellen |
-| `rewind --exclude outlook,teams` | **Opt-out**: alles außer den genannten |
-| `rewind --no-llm` | Rohes Markdown ohne LLM-Zusammenfassung |
-| `rewind --json` | Roh-JSON statt Markdown |
-| `rewind --copy` | Ergebnis ins Clipboard |
-| `rewind --refresh` | Cache ignorieren, neu fetchen |
-| `rewind --config <pfad>` | Andere Config-Datei (sonst `$REWIND_CONFIG` oder Default) |
-| `rewind doctor` | Pro aktivierte Quelle: Auth-Test + Identitäts-Check |
-| `rewind login outlook` / `rewind login teams` | MS Graph Device-Code-Flow |
-| `rewind config init` | Beispiel-Config schreiben |
+| `rewind` | Yesterday (smart: Mon picks up Friday) |
+| `rewind --date 2026-05-04` | Specific day |
+| `rewind --since 2026-05-01 --until 2026-05-04` | Range |
+| `rewind --sources jira,git` | **Opt-in**: only the listed sources |
+| `rewind --exclude outlook,teams` | **Opt-out**: everything except the listed |
+| `rewind --no-llm` | Raw markdown, no LLM summary |
+| `rewind --json` | Raw JSON instead of markdown |
+| `rewind --copy` | Copy result to clipboard |
+| `rewind --refresh` | Ignore cache, re-fetch |
+| `rewind --config <path>` | Different config file (else `$REWIND_CONFIG` or default) |
+| `rewind doctor` | Per enabled source: auth test + identity check |
+| `rewind login outlook` / `rewind login teams` | MS Graph device-code flow |
+| `rewind config init` | Write a sample config |
 
-Quellen lassen sich auf zwei Wegen ausschalten:
+Sources can be disabled in two ways:
 
-- **Dauerhaft**: `enabled: false` im `config.yaml` unter der Quelle.
-- **Pro Lauf**: `--exclude <name1,name2>` (oder `--sources <name>` als Whitelist).
+- **Permanently**: `enabled: false` in `config.yaml` under the source.
+- **Per run**: `--exclude <name1,name2>` (or `--sources <name>` as a whitelist).
 
-## Setup verifizieren — `rewind doctor`
+## Verify your setup — `rewind doctor`
 
-Nachdem du eine Quelle eingerichtet hast, prüf sie mit:
+After configuring a source, validate it with:
 
 ```bash
 rewind doctor
 ```
 
-Pro aktivierter Quelle wird ein leichter Test-Call gemacht — der **dich** auf der Gegenseite identifiziert und sagt, ob Auth + URL + (für Atlassian) `auth_method` zusammenpassen. Beispiel-Output:
+For each enabled source a lightweight test call is made — it identifies **you** on the other end and tells you whether auth + URL + (for Atlassian) `auth_method` line up. Sample output:
 
 ```
   ⏪ rewind doctor
@@ -122,41 +122,41 @@ Pro aktivierter Quelle wird ein leichter Test-Call gemacht — der **dich** auf 
   7 ok · 2 failed · 2 disabled
 ```
 
-**Symbolik:**
-- `✓` (grün): Quelle ist erreichbar, Auth klappt, optional steht in `[…]` der Identifier (so siehst du, ob du wirklich der bist, für den du dich hältst — wichtig bei mehreren Accounts oder Tippfehlern in `identity`).
-- `✗` (rot): Quelle ist enabled, aber Test-Call failed. Die Meldung sagt warum (fehlendes Env, 401, fehlende Projekte, …).
-- `─` (grau): Quelle ist via `enabled: false` aus.
+**Symbols:**
+- `✓` (green): source is reachable, auth works; the `[…]` shows the resolved identifier (so you can see whether you really are who you think you are — important with multiple accounts or typos in `identity`).
+- `✗` (red): source is enabled but the test call failed. The message says why (missing env, 401, missing project, …).
+- `─` (grey): source is disabled via `enabled: false`.
 
-Exit-Code ist `1`, wenn mindestens eine Quelle fehlschlägt — gut für CI/Skripte.
+Exit code is `1` if at least one source fails — handy for CI/scripts.
 
-**Was die Test-Calls konkret tun:**
+**What the test calls actually do:**
 
-| Quelle | Endpoint | Was bestätigt wird |
+| Source | Endpoint | What it confirms |
 |---|---|---|
-| Jira | `/rest/api/2/myself` | PAT + auth_method, gibt deinen Username zurück |
-| Confluence | `/rest/api/user/current` | dito |
-| Bitbucket | `/dashboard/pull-requests?limit=1` | PAT + Auth + Sichtbarkeit |
-| GitLab | `/api/v4/user` | PAT, gibt User + ID zurück |
-| GitHub | `/user` | PAT, gibt Login zurück |
-| Git | nur lokal | dass `repos_dir` existiert + Anzahl Repos |
-| Jenkins | `/api/json` | API-Token + Server erreichbar |
-| Todoist | `/projects` | Token + ob konfigurierte Projekt-Namen existieren |
-| Outlook/Teams | `/me` mit silent token | dass MSAL-Cache gültig ist (sonst: erst `rewind login`) |
-| LLM (Gemini) | `POST <endpoint>` mit `Respond with exactly OK` | Endpoint, `x-api-key`, `custom_headers`, Body-Format und Modell-Erreichbarkeit |
+| Jira | `/rest/api/2/myself` | PAT + auth_method, returns your username |
+| Confluence | `/rest/api/user/current` | same |
+| Bitbucket | `/dashboard/pull-requests?limit=1` | PAT + auth + visibility |
+| GitLab | `/api/v4/user` | PAT, returns user + ID |
+| GitHub | `/user` | PAT, returns login |
+| Git | local only | that `repos_dir` exists + repo count |
+| Jenkins | `/api/json` | API token + server reachable |
+| Todoist | `/projects` | token + that configured project names exist |
+| Outlook/Teams | `/me` with silent token | that the MSAL cache is valid (otherwise: run `rewind login` first) |
+| LLM (Gemini) | `POST <endpoint>` with `Respond with exactly OK` | endpoint, `x-api-key`, `custom_headers`, body shape and model reachability |
 
-Faustregel: **immer `rewind doctor` laufen lassen, bevor du das erste Mal `rewind` für gestern startest** — dann findest du Konfig-Probleme auf der Stelle, statt mit einem stillen leeren Bullet-Output dazustehen.
+Rule of thumb: **always run `rewind doctor` before your first real `rewind` run for yesterday** — that way you find config issues immediately instead of staring at a silent empty bullet output.
 
-## Setup pro Quelle
+## Per-source setup
 
-Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was in die Config kommt, was in die `.env`.
+Each source needs its own credentials. Below: where to get them, what goes into the config, what goes into the `.env`.
 
 ### Jira (on-prem / Server / Data Center)
 
-1. Personal Access Token erstellen:
-   - Jira aufrufen → oben rechts auf dein Profil → **Profile**.
-   - Linke Spalte **Personal Access Tokens** → **Create token**.
-   - Name: z. B. `rewind`. Expiry nach Belieben (oder nach Firmenpolicy).
-   - Token kopieren (wird nur einmal angezeigt!).
+1. Create a personal access token:
+   - Open Jira → top right click your profile → **Profile**.
+   - Left column **Personal Access Tokens** → **Create token**.
+   - Name: e.g. `rewind`. Expiry as you like (or per company policy).
+   - Copy the token (it's only shown once!).
 2. `.env`:
    ```
    JIRA_PAT=<token>
@@ -167,24 +167,24 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      enabled: true
      base_url: https://jira.firma.de
      pat_env: JIRA_PAT
-     auth_method: bearer        # falls 401 zurückkommt, auf 'basic' umstellen
-     in_progress_jql: 'assignee = currentUser() AND project = PROJ AND status = "In Bearbeitung"'
+     auth_method: bearer        # if you get 401 back, switch to 'basic'
+     in_progress_jql: 'assignee = currentUser() AND project = PROJ AND status = "In Progress"'
      suggestions_jql: 'project = PROJ AND status = "Ready for Dev" ORDER BY priority DESC'
-     # ↑ Wenn `in_progress_jql` 0 Treffer liefert, werden bis zu 10 Tickets aus
-     #   `suggestions_jql` als Pickup-Vorschläge ausgegeben. Beide leer = Fallback aus.
+     # ↑ If `in_progress_jql` returns 0 hits, up to 10 tickets from
+     #   `suggestions_jql` are emitted as pickup suggestions. Both empty = fallback off.
    identity:
-     atlassian_user: e.fischer  # dein Jira-Username (für JQL-Filter)
+     atlassian_user: e.fischer  # your Jira username (used for JQL filters)
    ```
 4. Test:
    ```bash
    rewind --no-llm --sources jira --date 2026-05-05
    ```
 
-**Falls Bearer abgelehnt wird** (manche älteren Server / Reverse-Proxy-Setups): `auth_method: basic` setzen. Dann wird der PAT als Passwort in HTTP-Basic-Auth verwendet (mit `identity.jira_user` / `atlassian_user` als Username).
+**If Bearer is rejected** (some older servers / reverse-proxy setups): set `auth_method: basic`. The PAT is then used as the password in HTTP Basic auth (with `identity.jira_user` / `atlassian_user` as the username).
 
 ### Confluence (on-prem)
 
-1. PAT erstellen: Confluence → Profil → **Personal Access Tokens** → **Create token**. (Gleiches UI-Pattern wie Jira.)
+1. Create a PAT: Confluence → profile → **Personal Access Tokens** → **Create token**. (Same UI pattern as Jira.)
 2. `.env`:
    ```
    CONFLUENCE_PAT=<token>
@@ -195,18 +195,18 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      enabled: true
      base_url: https://confluence.firma.de
      pat_env: CONFLUENCE_PAT
-     spaces: []                 # leer = alle; oder z.B. ['DEV', 'TEAM']
+     spaces: []                 # empty = all; or e.g. ['DEV', 'TEAM']
      auth_method: bearer
    ```
 
-`identity.atlassian_user` (oder `confluence_user`) wird als CQL-Filter benutzt: `lastModifier = "<user>"`.
+`identity.atlassian_user` (or `confluence_user`) is used as a CQL filter: `lastModifier = "<user>"`.
 
 ### Bitbucket (Server / Data Center, on-prem)
 
-> **Hinweis zum Scope:** Die Bitbucket-Quelle erfasst ausschließlich Pull-Request-Aktivität (öffnen, mergen, Kommentare, Reviews). Direkte Commits ohne PR werden hier **nicht** erfasst — sie kommen über die `git`-Quelle aus deinen lokalen Repos (sofern dort `enabled: true`).
+> **Scope note:** the Bitbucket source captures pull-request activity only (open, merge, comments, reviews). Direct commits without a PR are **not** captured here — they come in via the `git` source from your local repos (provided that has `enabled: true`).
 
-1. PAT erstellen: oben rechts auf Avatar → **Manage account** → **Personal access tokens** → **Create**.
-   - Permissions: mindestens **Repository read** und **Project read**. Die Dashboard-Endpoints brauchen kein write.
+1. Create a PAT: top right click your avatar → **Manage account** → **Personal access tokens** → **Create**.
+   - Permissions: at least **Repository read** and **Project read**. The dashboard endpoints don't need write.
 2. `.env`:
    ```
    BITBUCKET_PAT=<token>
@@ -218,18 +218,18 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      base_url: https://bitbucket.firma.de
      pat_env: BITBUCKET_PAT
      auth_method: bearer
-     ignored_authors:                      # PRs von diesen Usern werden komplett rausgefiltert
-       - renovate                          # — typischer Bot-Spam fürs Daily ungefiltert ist Lärm
+     ignored_authors:                      # PRs from these users are filtered out entirely
+       - renovate                          # — typical bot spam, noise in the standup
        - dependabot
    identity:
-     bitbucket_user: efischer   # oft anders als Jira-Username
+     bitbucket_user: efischer   # often different from the Jira username
    ```
 
-### GitHub (github.com oder Enterprise)
+### GitHub (github.com or Enterprise)
 
-1. PAT erstellen:
-   - github.com → Settings → Developer settings → **Personal access tokens** → **Fine-grained tokens** (oder klassisch).
-   - Scopes: `repo` (read), `read:user`. Bei feingranular: Read-Only auf den relevanten Repos.
+1. Create a PAT:
+   - github.com → Settings → Developer settings → **Personal access tokens** → **Fine-grained tokens** (or classic).
+   - Scopes: `repo` (read), `read:user`. Fine-grained: read-only on the relevant repos.
 2. `.env`:
    ```
    GITHUB_PAT=<token>
@@ -239,18 +239,18 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
    github:
      enabled: true
      base_url: https://api.github.com
-     # web_url: https://github.com           # auto-derived; nur für Enterprise nötig
+     # web_url: https://github.com           # auto-derived; only required for Enterprise
      pat_env: GITHUB_PAT
-     # username: efischer                    # optional, sonst aus dem Token gezogen
-     repos:                                  # optional: Whitelist (sonst alle)
+     # username: efischer                    # optional, otherwise read from the token
+     repos:                                  # optional: whitelist (otherwise all)
        - owner/repo-a
        - owner/repo-b
-     ignored_authors:                        # PRs von diesen Usern rausfiltern
+     ignored_authors:                        # filter out PRs from these users
        - renovate[bot]
        - dependabot[bot]
    ```
 
-Für **GitHub Enterprise** beide URLs setzen:
+For **GitHub Enterprise** set both URLs:
 ```yaml
 base_url: https://github.firma.de/api/v3
 web_url: https://github.firma.de
@@ -258,8 +258,8 @@ web_url: https://github.firma.de
 
 ### GitLab (on-prem)
 
-1. PAT erstellen: oben rechts → **Edit profile** → linke Spalte **Access Tokens** → **Add new token**.
-   - Scopes: **`read_api`** reicht; alternativ **`api`** falls auch Schreibvorgänge gewünscht (für rewind nicht nötig).
+1. Create a PAT: top right → **Edit profile** → left column **Access Tokens** → **Add new token**.
+   - Scopes: **`read_api`** is enough; alternatively **`api`** if you want write access (not needed for rewind).
 2. `.env`:
    ```
    GITLAB_PAT=<token>
@@ -270,16 +270,16 @@ web_url: https://github.firma.de
      enabled: true
      base_url: https://gitlab.firma.de
      pat_env: GITLAB_PAT
-     ignored_authors:                        # MRs von diesen Usern rausfiltern
+     ignored_authors:                        # filter out MRs from these users
        - renovate-bot
        - dependabot
    ```
 
-GitLab identifiziert dich automatisch über das Token (`/api/v4/user`), du musst keinen Username konfigurieren.
+GitLab identifies you automatically via the token (`/api/v4/user`); no username needs to be configured.
 
-### Lokale Git-Repos
+### Local Git repos
 
-Keine Auth nötig. Die Source läuft rekursiv (default `max_depth: 2`) durch ein Verzeichnis und macht in jedem Repo `git log --since --until --all`.
+No auth required. The source recursively walks (default `max_depth: 2`) through a directory and runs `git log --since --until --all` in each repo.
 
 ```yaml
 git:
@@ -287,17 +287,17 @@ git:
   repos_dir: C:/Users/elias/IdeaProjects
   max_depth: 2
 identity:
-  git_emails:                  # Author-Emails — leer = alle Commits
+  git_emails:                  # author emails — empty = all commits
     - elias@firma.de
-    - elias@privat.de          # mehrere möglich
+    - elias@privat.de          # multiple allowed
 ```
 
-Commits werden als `unpushed: true` markiert, wenn sie lokal aber nicht im Remote sind (über `git log --branches --not --remotes`).
+Commits are flagged as `unpushed: true` if they exist locally but not on the remote (via `git log --branches --not --remotes`).
 
 ### Jenkins
 
-1. **API-Token** (nicht Passwort!) erstellen:
-   - Jenkins → oben rechts auf deinen Namen → **Configure** → **API Token** → **Add new Token** → kopieren.
+1. Create an **API token** (not your password!):
+   - Jenkins → top right click your name → **Configure** → **API Token** → **Add new Token** → copy.
 2. `.env`:
    ```
    JENKINS_TOKEN=<api-token>
@@ -307,28 +307,28 @@ Commits werden als `unpushed: true` markiert, wenn sie lokal aber nicht im Remot
    jenkins:
      enabled: true
      base_url: https://jenkins.firma.de
-     username: efischer                      # Jenkins-Username (NICHT Email)
+     username: efischer                      # Jenkins username (NOT email)
      api_token_env: JENKINS_TOKEN
-     jobs:                                   # Whitelist von Job-Pfaden — Pflicht (sonst leer)
-       - team-x/api-service                  # Folders mit '/' separieren
+     jobs:                                   # whitelist of job paths — required (otherwise empty)
+       - team-x/api-service                  # folders separated by '/'
        - team-x/web-app
-     alt_user_ids: []                        # Falls du andere Jenkins-IDs hattest
-     scm_emails:                             # Match auf SCM-Push-Trigger ("Started by GitHub push by …")
+     alt_user_ids: []                        # if you've had other Jenkins IDs
+     scm_emails:                             # match on SCM push triggers ("Started by GitHub push by …")
        - elias@firma.de
    ```
 
-**Filterung**: Quelle holt nur Builds aus Jobs in der `jobs`-Liste. Pro Build wird gefiltert auf:
-- **Triggered by user**: Cause hat deine `username` (oder eine `alt_user_ids`-Variante)
-- **Triggered by SCM**: Cause-Beschreibung enthält eine deiner `scm_emails` (für automatische Builds nach Push)
+**Filtering**: the source only fetches builds from jobs in the `jobs` list. Each build is then filtered on:
+- **Triggered by user**: cause has your `username` (or one of `alt_user_ids`)
+- **Triggered by SCM**: cause description contains one of your `scm_emails` (for automatic builds after a push)
 
-Builds ohne Match werden verworfen — d. h. das Mega-Build-Log eures Master-Jobs landet nicht im Output, nur deine eigenen.
+Builds without a match are dropped — i.e. the giant build log of your master job won't end up in the output, only your own runs.
 
-**Auth**: HTTP-Basic mit `username:api_token`.
+**Auth**: HTTP Basic with `username:api_token`.
 
 ### Todoist
 
-1. API-Token holen:
-   - Todoist Web → Settings → **Integrations** → Tab **Developer** → **API token** kopieren.
+1. Get the API token:
+   - Todoist Web → Settings → **Integrations** → tab **Developer** → **API token** → copy.
 2. `.env`:
    ```
    TODOIST_TOKEN=<token>
@@ -339,39 +339,39 @@ Builds ohne Match werden verworfen — d. h. das Mega-Build-Log eures Master-Job
      enabled: true
      api_token_env: TODOIST_TOKEN
      base_url: https://api.todoist.com
-     paths:                                  # endpoints — defaults zur v1 unified API
+     paths:                                  # endpoints — defaults point at the v1 unified API
        projects: /api/v1/projects
        tasks: /api/v1/tasks
        completed: /api/v1/tasks/completed/by_completion_date
-     projects:                               # Whitelist nach Projekt-NAME (case-insensitive)
-       - Work                                # leer = alle Projekte
-     include_created: false                  # true = auch Tasks zählen, die du gestern angelegt hast
+     projects:                               # whitelist by project NAME (case-insensitive)
+       - Work                                # empty = all projects
+     include_created: false                  # true = also count tasks you created yesterday
    ```
 
-**Was die Source liefert:**
-- **Erledigte Tasks** im Zeitraum (über `paths.completed`).
-- Optional: in dem Zeitraum **angelegte** Tasks, falls `include_created: true`.
+**What the source returns:**
+- **Completed tasks** in the range (via `paths.completed`).
+- Optionally: tasks **created** in the range, if `include_created: true`.
 
-**API-Endpoints sind konfigurierbar.** Defaults zeigen auf die v1 unified API (`/api/v1/...`). Falls Todoist die wieder ändert oder dein Tenant noch alte Endpoints braucht: `paths` überschreiben — z. B. mit den Legacy-Pfaden `/rest/v2/projects`, `/rest/v2/tasks`, `/sync/v9/completed/get_all`.
+**API endpoints are configurable.** Defaults point at the v1 unified API (`/api/v1/...`). If Todoist changes them again, or your tenant still needs the old endpoints: override `paths` — e.g. with the legacy paths `/rest/v2/projects`, `/rest/v2/tasks`, `/sync/v9/completed/get_all`.
 
-Projekte werden über den Namen aufgelöst (kein Project-ID-Hardcoding). Falls ein Projektname nicht gefunden wird, gibt's eine Warnung im Log, der Rest läuft.
+Projects are resolved by name (no project-ID hardcoding). If a project name isn't found, you get a warning in the log; the rest still runs.
 
-### Outlook (Microsoft 365 / Graph API) — ⚠️ braucht Azure-App-Registration
+### Outlook (Microsoft 365 / Graph API) — ⚠️ requires an Azure app registration
 
-> **Voraussetzung**: Eine Azure-App-Registration muss in eurem Tenant existieren. Die kannst du dir nicht selbst anlegen, falls die IT das in eurem Tenant gesperrt hat (häufig der Fall in Großunternehmen). Sprich mit deiner IT/Azure-Admin-Crew darüber.
+> **Prerequisite**: an Azure app registration must exist in your tenant. You can't create one yourself if your IT has locked that down (often the case at large companies). Talk to your IT / Azure admin team about it.
 
-**Was die IT konfigurieren muss:**
-- Eine **App-Registration** (kein Service Principal nötig) mit:
-  - **Name**: `rewind` (oder beliebig)
-  - **Supported account types**: Single tenant
-  - **Public client** = ja (wichtig: aktiviere unter **Authentication → Allow public client flows: Yes**)
-  - **API Permissions** (delegated, *nicht* application):
+**What IT needs to configure:**
+- An **app registration** (no service principal needed) with:
+  - **Name**: `rewind` (or whatever)
+  - **Supported account types**: single tenant
+  - **Public client** = yes (important: enable **Authentication → Allow public client flows: Yes**)
+  - **API Permissions** (delegated, *not* application):
     - `User.Read`
     - `Calendars.Read`
     - `Mail.Read`
-  - **Redirect URI**: nicht nötig für Device-Code-Flow
+  - **Redirect URI**: not needed for the device-code flow
 
-Du brauchst danach: **Tenant ID** und **Client ID** (= "Application (client) ID"). Beides aus dem Azure Portal kopieren.
+You'll then need: **Tenant ID** and **Client ID** (= "Application (client) ID"). Copy both from the Azure portal.
 
 **Setup:**
 
@@ -388,103 +388,103 @@ Du brauchst danach: **Tenant ID** und **Client ID** (= "Application (client) ID"
    ```bash
    rewind login outlook
    ```
-   Es wird ein Code in der Konsole gedruckt. Im Browser `https://microsoft.com/devicelogin` öffnen, Code eintippen, einloggen, Berechtigungen bestätigen.
-3. Token landet in `~/.config/rewind/msal-cache.json` und wird danach automatisch silent refreshed.
+   A code is printed to the console. In the browser open `https://microsoft.com/devicelogin`, enter the code, sign in, accept the permissions.
+3. The token lands in `~/.config/rewind/msal-cache.json` and is silently refreshed from then on.
 
-**Wenn du keine App-Registration bekommst**: Outlook-Quelle deaktivieren (`enabled: false`) — der Rest des Tools funktioniert unabhängig davon.
+**If you can't get an app registration**: disable the Outlook source (`enabled: false`) — the rest of the tool works without it.
 
-### Teams (Microsoft 365 / Graph API) — ⚠️ gleiche Voraussetzung wie Outlook
+### Teams (Microsoft 365 / Graph API) — ⚠️ same prerequisite as Outlook
 
-Teilt sich die App-Registration mit Outlook. Die IT muss zusätzlich diese **Delegated Permissions** zur bestehenden App-Registration hinzufügen:
+Shares the app registration with Outlook. IT needs to add these additional **delegated permissions** to the existing registration:
 - `Chat.Read`
-- `OnlineMeetings.Read` (optional, nur wenn `include_online_meetings: true`)
+- `OnlineMeetings.Read` (optional, only if `include_online_meetings: true`)
 
 **Setup:**
 
 ```yaml
 teams:
   enabled: true
-  tenant_id: <selber-tenant-wie-outlook>
-  client_id: <selbe-app-wie-outlook>
+  tenant_id: <same-tenant-as-outlook>
+  client_id: <same-app-as-outlook>
   include_chats: true
-  include_online_meetings: false   # Teams-Calls die als Kalender-Termin existieren, holt schon Outlook
-  max_chats: 50                    # wie viele zuletzt aktiven Chats gescannt werden
+  include_online_meetings: false   # Teams calls that exist as calendar events are already pulled by Outlook
+  max_chats: 50                    # how many recently-active chats to scan
 ```
 
 ```bash
 rewind login teams
 ```
 
-(Falls schon Outlook-Login existiert, wird nur das Scope-Set erweitert.)
+(If an Outlook login already exists, only the scope set is extended.)
 
-**Was Teams als Source liefert:**
-- Aggregierte Chat-Aktivität: pro Chat ein Eintrag mit *"Chat mit X — N eigene Nachrichten"* (Inhalt der Nachrichten wird **nicht** an das LLM geschickt).
-- Optional: Online-Meetings, die du selbst organisiert hast.
+**What Teams provides as a source:**
+- Aggregated chat activity: per chat one entry like *"Chat with X — N own messages"* (message contents are **not** sent to the LLM).
+- Optionally: online meetings you organized yourself.
 
-**Was Teams *nicht* liefert:**
-- **Reine Telefonate / PSTN-Calls** (CDR-Daten). Die liegen hinter `CallRecords.Read.All` (App-Permission, Admin-Consent-pflichtig). Dafür brauchst du Tenant-Admin-Rechte oder einen Service-User mit Application-Auth — ist ohne IT-Support nicht erreichbar.
-- Channel-Posts (also Posts in Teams-Kanälen, nicht Chats) — das wäre `ChannelMessage.Read.All`, was ebenfalls heikel ist.
+**What Teams does *not* provide:**
+- **Pure phone / PSTN calls** (CDR data). Those sit behind `CallRecords.Read.All` (application permission, requires admin consent). You'd need tenant admin rights or a service user with application auth — not reachable without IT support.
+- Channel posts (i.e. posts in Teams channels, not chats) — that would need `ChannelMessage.Read.All`, which is similarly tricky.
 
-### Gemini (LLM hinter Corp-Proxy)
+### Gemini (LLM behind a corp proxy)
 
 ```yaml
 llm:
   endpoint: https://corp-llm-proxy.firma.de/projects/PROJECT/locations/europe-west1/publishers/google/models/gemini-2.5-flash:generateContent
   model: gemini-2.5-flash
-  prompt_language: de            # 'en' für englische Bullet-Liste
-  custom_headers:                # auth läuft komplett hierüber
-    x-api-key: '${GEMINI_API_KEY}'   # ${ENV_VAR} wird zur Laufzeit aus dem Environment substituiert
-    # x-tenant-id: team-x        # zusätzliche Header nach Bedarf
+  prompt_language: en            # 'de' for a German bullet list
+  custom_headers:                # auth flows entirely through here
+    x-api-key: '${GEMINI_API_KEY}'   # ${ENV_VAR} is substituted at runtime from the environment
+    # x-tenant-id: team-x        # additional headers as needed
 ```
 
 ```
 GEMINI_API_KEY=<key>
 ```
 
-**Auth-Modell**: `rewind` setzt **keinen** Header automatisch — alles läuft über `custom_headers`. Region, Project-ID, Location, Modellname leben in der `endpoint`-URL. Welcher Header für die Auth genutzt wird, entscheidest du: `x-api-key`, `Authorization: Bearer …`, was auch immer dein Proxy verlangt.
+**Auth model**: `rewind` does **not** set any header automatically — everything goes through `custom_headers`. Region, project ID, location and model name live in the `endpoint` URL. Which header is used for auth is up to you: `x-api-key`, `Authorization: Bearer …`, whatever your proxy expects.
 
-**Env-Var-Substitution**: In `custom_headers`-Werten wird `${ENV_VAR_NAME}` zur Laufzeit aus dem Environment ersetzt. Wenn die Variable nicht gesetzt ist → Fehler mit klarem Hinweis. So bleiben Secrets in `.env` und nicht in der Config-Datei.
+**Env var substitution**: in `custom_headers` values, `${ENV_VAR_NAME}` is substituted at runtime from the environment. If the variable isn't set → error with a clear message. That way secrets stay in `.env` and not in the config file.
 
-**Body-Shape**: Standard-Gemini-Format mit getrennter `systemInstruction` (Daily-Style-Anweisungen + Few-Shot-Beispiel) und `contents` (deine Aktivitäten). Falls dein Proxy ein anderes Body-Schema erwartet (z. B. OpenAI-kompatibel statt Gemini), ist `src/llm/gemini.ts` die einzige Stelle, an der das angepasst werden muss.
+**Body shape**: standard Gemini format with separate `systemInstruction` (daily-style instructions + few-shot example) and `contents` (your activities). If your proxy expects a different body schema (e.g. OpenAI-compatible instead of Gemini), `src/llm/gemini.ts` is the only place that needs adjusting.
 
-Verifiziere die Anbindung mit:
+Verify the integration with:
 ```bash
 rewind doctor
 ```
-— der LLM-Check macht einen minimalen `Respond with exactly OK`-Call und zeigt dir, ob Endpoint, Auth, Header und Modell zusammenpassen.
+— the LLM check makes a minimal `Respond with exactly OK` call and tells you whether endpoint, auth, headers and model line up.
 
-### Corp-Proxy & Custom-CA
+### Corp proxy & custom CA
 
-Alle HTTP-Calls (Atlassian, Bitbucket, GitLab, Graph, Gemini) gehen durch denselben `undici`-Dispatcher. Wenn `HTTPS_PROXY` (oder `HTTP_PROXY`) gesetzt ist, wird automatisch ein `ProxyAgent` verwendet:
+All HTTP calls (Atlassian, Bitbucket, GitLab, Graph, Gemini) go through the same `undici` dispatcher. If `HTTPS_PROXY` (or `HTTP_PROXY`) is set, a `ProxyAgent` is used automatically:
 
 ```
 HTTPS_PROXY=http://proxy.firma.de:8080
 NO_PROXY=localhost,127.0.0.1
 ```
 
-Internes CA-Bundle:
+Internal CA bundle:
 ```
 NODE_EXTRA_CA_CERTS=C:/path/to/corp-ca-bundle.pem
 ```
 
-Beides aus der `.env` (oder shell environment) lesbar.
+Both readable from `.env` (or the shell environment).
 
-## Architektur
+## Architecture
 
-### Tech-Stack
+### Tech stack
 
-- **Node.js ≥ 20** mit **TypeScript** (ESM)
-- **commander** für die CLI
-- **undici** für HTTP, mit `ProxyAgent` für `HTTPS_PROXY`
-- **simple-git** für lokale Repos
-- **@azure/msal-node** für Outlook/Teams-Auth (Public Client + Device-Code-Flow, kein Client-Secret)
-- **zod** für Config-Validierung
-- **js-yaml** + **dotenv** für Config & Secrets
-- **pino** für Logging
+- **Node.js ≥ 20** with **TypeScript** (ESM)
+- **commander** for the CLI
+- **undici** for HTTP, with `ProxyAgent` for `HTTPS_PROXY`
+- **simple-git** for local repos
+- **@azure/msal-node** for Outlook/Teams auth (public client + device-code flow, no client secret)
+- **zod** for config validation
+- **js-yaml** + **dotenv** for config & secrets
+- **pino** for logging
 
-### Source-Plugin-Pattern
+### Source-plugin pattern
 
-Jede Quelle ist ein Modul mit einer `fetch…`-Funktion, die eine `Promise<SourceResult>` liefert. Alle Quellen produzieren denselben normalisierten Typ:
+Each source is a module with a `fetch…` function that returns a `Promise<SourceResult>`. All sources produce the same normalized type:
 
 ```ts
 interface Activity {
@@ -497,128 +497,128 @@ interface Activity {
 }
 ```
 
-Die Pipeline in `src/sources/index.ts` ruft alle aktivierten Quellen parallel auf (`Promise.all` mit Per-Source try/catch), sodass eine fehlerhafte Quelle nur ihren eigenen Block leer/mit Fehlermeldung lässt.
+The pipeline in `src/sources/index.ts` calls all enabled sources in parallel (`Promise.all` with per-source try/catch), so a failing source only leaves its own block empty/with an error.
 
-### Datei-Übersicht
+### File overview
 
 ```
 src/
-├── index.ts                  CLI (commander) + Pipeline-Orchestrierung
-├── config.ts                 zod-validiertes YAML-Loading + Sample-Generator
-├── range.ts                  "gestern"-Logik mit Mo→Fr-Sprung
-├── http.ts                   undici-Setup + Bearer/Basic-Helpers
-├── cache.ts                  JSON-Cache pro Tag in ~/.cache/rewind/
+├── index.ts                  CLI (commander) + pipeline orchestration
+├── config.ts                 zod-validated YAML loading + sample generator
+├── range.ts                  "yesterday" logic with Mon→Fri jump
+├── http.ts                   undici setup + bearer/basic helpers
+├── cache.ts                  per-day JSON cache in ~/.cache/rewind/
 ├── log.ts                    pino-pretty
 ├── types.ts                  Activity, DateRange, SourceResult
 ├── auth/
-│   └── msal.ts               Shared MSAL Public Client (Outlook + Teams)
+│   └── msal.ts               shared MSAL public client (Outlook + Teams)
 ├── sources/
-│   ├── index.ts              Source-Registry, runSources() mit graceful degradation
+│   ├── index.ts              source registry, runSources() with graceful degradation
 │   ├── jira.ts               REST v2: /search (JQL) + /issue/{key}/worklog + changelog
 │   ├── confluence.ts         REST: /content/search (CQL)
 │   ├── bitbucket.ts          REST 1.0: /dashboard/pull-requests + /activities
 │   ├── gitlab.ts             REST v4: /events + /merge_requests
 │   ├── github.ts             REST v3: /users/<u>/events
-│   ├── git.ts                Repo-Walk + simple-git log mit unpushed-Marker
-│   ├── jenkins.ts            REST: per-job builds[*] mit Cause-Filter
-│   ├── todoist.ts            REST + Sync-API für completed
+│   ├── git.ts                repo walk + simple-git log with unpushed marker
+│   ├── jenkins.ts            REST: per-job builds[*] with cause filter
+│   ├── todoist.ts            REST + sync API for completed
 │   ├── outlook.ts            MSAL + /me/calendarView + /sentitems
-│   └── teams.ts              MSAL + /me/chats + Messages-Filter auf eigene
+│   └── teams.ts              MSAL + /me/chats + messages filtered to your own
 ├── llm/
-│   ├── gemini.ts             POST mit x-api-key, Standard-Gemini-Body
-│   └── prompt.ts             Daily-Style-Prompt (DE/EN), few-shot ticketzentriert
+│   ├── gemini.ts             POST with x-api-key, standard Gemini body
+│   └── prompt.ts             daily-style prompt (DE/EN), ticket-centric few-shot
 └── format/
-    ├── markdown.ts           Roh-Output für --no-llm
-    └── condense.ts           Vorbereitung für LLM-Prompt
+    ├── markdown.ts           raw output for --no-llm
+    └── condense.ts           preparation for the LLM prompt
 ```
 
 ### "Smart yesterday"
 
-Standard ist nicht `today - 1`, sondern:
+The default isn't `today - 1`, it's:
 
-| Heute | "gestern" |
+| Today | "yesterday" |
 |---|---|
-| Mo | letzter Freitag |
-| Sa | Freitag |
-| So | Freitag |
-| sonst | gestern |
+| Mon | last Friday |
+| Sat | Friday |
+| Sun | Friday |
+| else | yesterday |
 
-Mit `defaults.weekend_skip: false` schaltest du das aus.
+Disable with `defaults.weekend_skip: false`.
 
-## Daily-Style des LLM-Outputs
+## Daily style of the LLM output
 
-Der Prompt (in `src/llm/prompt.ts`) erzwingt einen zweigeteilten Output:
+The prompt (in `src/llm/prompt.ts`) enforces a two-part output:
 
-**Abschnitt 1 — "Was ich gestern gemacht habe":**
-- 3–6 Bullets, ein Bullet pro Ticket
-- Ticket-ID vorn (`PROJ-1234: …`)
-- Mehrere Commits / PR-Aktionen / Worklogs zum gleichen Ticket = ein Bullet
-- Erste Person, konkrete Verben (implementiert, gefixt, reviewed)
-- Routine-Meetings raus, substantielle Termine als eigenes Bullet
+**Section 1 — "What I did yesterday":**
+- 3–6 bullets, one bullet per ticket
+- Ticket ID up front (`PROJ-1234: …`)
+- Multiple commits / PR actions / worklogs on the same ticket = one bullet
+- First person, concrete verbs (implemented, fixed, reviewed)
+- Routine meetings dropped, substantive ones get their own bullet
 
-**Abschnitt 2 — "Heute":** verschmilzt offene Arbeit + heute anstehende Termine.
-- 3–6 Bullets, gruppiert: laufende eigene Arbeit (offene Tickets/PRs) zuerst, dann anstehende Reviews, dann Termine, dann Tasks
-- Wenn ein offenes Item dieselbe Ticket-ID wie ein Gestern-Bullet hat, **nicht doppelt nennen** — nur kurz "läuft weiter"
-- Termine kompakt: `14:00 Architektur-Sync mit Backend`
-- Hinweise auf alte unangetastete Items ("PR liegt seit 5 Tagen") nur wenn auffällig
-- Wenn aktuell **nichts in Bearbeitung** ist (`in_progress_jql` liefert 0 Treffer) und ein `suggestions_jql` konfiguriert ist, werden 1–2 konkrete Pickup-Vorschläge als "könnte heute … angehen" formuliert
+**Section 2 — "Today":** merges open work + meetings coming up today.
+- 3–6 bullets, grouped: own ongoing work (open tickets/PRs) first, then pending reviews, then meetings, then tasks
+- If an open item shares a ticket ID with a yesterday-bullet, **don't repeat it** — just briefly note "still in flight"
+- Meetings compact: `14:00 architecture sync with backend`
+- Hints about old untouched items ("PR has been sitting for 5 days") only when notable
+- If currently **nothing is in progress** (`in_progress_jql` returns 0 hits) and a `suggestions_jql` is configured, 1–2 concrete pickup suggestions are surfaced as "could pick up … today"
 
-Beispiel-Output:
+Sample output:
 
 ```
-- PROJ-1234: Caching-Layer für die Suchanfragen implementiert und PR aufgemacht.
-- PROJ-1199: Bug im Login-Redirect gefixt, gemerged.
-- PROJ-1201: PR von Anna reviewed.
-- Architektur-Abstimmung mit Backend-Team zum neuen Event-Bus.
+- PROJ-1234: implemented caching layer for search queries and opened a PR.
+- PROJ-1199: fixed login redirect bug, merged.
+- PROJ-1201: reviewed Anna's PR.
+- Architecture sync with backend team on the new event bus.
 
-Heute:
-- PROJ-1234: Caching-Layer (In Progress) — läuft weiter.
-- 2 PRs warten auf mein Review (#42, #44).
-- 14:00 Refinement, 15:30 Architektur-Sync.
-- Todoist: Spec für Migrationspfad fertigstellen (fällig morgen).
+Today:
+- PROJ-1234: caching layer (in progress) — still in flight.
+- 2 PRs waiting on my review (#42, #44).
+- 14:00 refinement, 15:30 architecture sync.
+- Todoist: finish migration-path spec (due tomorrow).
 ```
 
-### Welche Quellen liefern was?
+### Which source provides what?
 
-| Quelle | Aktivitäten (gestern) | Offene Items | Heutiger Kalender |
+| Source | Activity (yesterday) | Open items | Today's calendar |
 |---|---|---|---|
-| Jira | Issues + Status-Transitions + Worklogs | Tickets mit `assignee = du AND statusCategory != Done` (+ optional Vorschläge via `suggestions_jql`, falls `in_progress_jql` 0 Treffer hat) | – |
-| Confluence | Pages + Comments | – | – |
-| Bitbucket | PRs + Reviews + Comments | Eigene offene PRs + Review-Inbox | – |
-| GitLab | Pushes + MRs + Reviews + Comments | Eigene offene MRs + Review-Inbox | – |
-| GitHub | Pushes + PRs + Reviews + Comments | Eigene offene PRs + `review-requested:me` | – |
-| Git (lokal) | Commits | – | – |
-| Jenkins | Builds | – | – |
-| Todoist | Completed Tasks | Offene Tasks (Projekt-Whitelist) | – |
-| Outlook | Termine gestern + gesendete Mails | – | Termine heute (ab jetzt) |
-| Teams | Chat-Aktivität + Meetings | – | Online-Meetings heute (falls aktiviert) |
+| Jira | issues + status transitions + worklogs | tickets with `assignee = you AND statusCategory != Done` (+ optional suggestions via `suggestions_jql` if `in_progress_jql` returns 0 hits) | – |
+| Confluence | pages + comments | – | – |
+| Bitbucket | PRs + reviews + comments | own open PRs + review inbox | – |
+| GitLab | pushes + MRs + reviews + comments | own open MRs + review inbox | – |
+| GitHub | pushes + PRs + reviews + comments | own open PRs + `review-requested:me` | – |
+| Git (local) | commits | – | – |
+| Jenkins | builds | – | – |
+| Todoist | completed tasks | open tasks (project whitelist) | – |
+| Outlook | meetings yesterday + sent mails | – | meetings today (from now on) |
+| Teams | chat activity + meetings | – | online meetings today (if enabled) |
 
-**Bot-PRs ausfiltern**: Bitbucket/GitLab/GitHub haben jeweils ein `ignored_authors`-Feld (siehe Setup-Sektionen). Standardmäßig leer; gängige Werte: `renovate`, `dependabot`, `renovate-bot`, `renovate[bot]`. Damit landen Renovate-PRs nicht in der Open-Liste.
+**Filter out bot PRs**: Bitbucket/GitLab/GitHub each have an `ignored_authors` field (see the setup sections). Empty by default; common values: `renovate`, `dependabot`, `renovate-bot`, `renovate[bot]`. That keeps Renovate PRs out of the open list.
 
-## Eigene Quelle hinzufügen
+## Adding your own source
 
-1. `src/sources/<name>.ts` mit einer Funktion, die `Promise<SourceResult>` liefert.
-2. Schema in `src/config.ts` ergänzen (zod), Type exportieren.
-3. In `src/sources/index.ts` in `SOURCES` und `ALL_SOURCES` registrieren.
-4. Eintrag in `SourceName` (`src/types.ts`) und ggf. ein Label in `src/format/markdown.ts:typeLabel`.
+1. Add `src/sources/<name>.ts` with a function returning `Promise<SourceResult>`.
+2. Extend the schema in `src/config.ts` (zod), export the type.
+3. Register it in `SOURCES` and `ALL_SOURCES` in `src/sources/index.ts`.
+4. Add an entry to `SourceName` (`src/types.ts`) and, if needed, a label in `src/format/markdown.ts:typeLabel`.
 
-## Entwicklung
+## Development
 
 ```bash
-npm run dev -- --no-llm --sources git    # ohne Build laufen lassen (tsx)
+npm run dev -- --no-llm --sources git    # run without build (tsx)
 npm run typecheck
-npm test                                  # Unit-Tests für range.ts
+npm test                                  # unit tests for range.ts
 npm run build
 ```
 
-## Out of Scope
+## Out of scope
 
-- **PSTN-Telefonate** (Teams-Calls als Phone-Records) — braucht Admin-Permissions
-- **Browser-Historie**
-- **Shell-/IDE-Historie** (kommt evtl. später als optionale Source)
-- **HTML-Output / Web-UI**
-- **On-prem Exchange via EWS** — Outlook setzt M365/Graph voraus
+- **PSTN phone calls** (Teams calls as phone records) — needs admin permissions
+- **Browser history**
+- **Shell / IDE history** (might come later as an optional source)
+- **HTML output / web UI**
+- **On-prem Exchange via EWS** — Outlook requires M365/Graph
 
-## Lizenz
+## License
 
-Privates Tool, keine Lizenz angegeben.
+Private tool, no license specified.
