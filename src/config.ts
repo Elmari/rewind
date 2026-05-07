@@ -104,7 +104,7 @@ const LlmSchema = z.object({
   endpoint: z.string().url(),
   model: z.string().default('gemini-2.5-flash'),
   prompt_language: z.enum(['de', 'en']).default('de'),
-  custom_headers: z.record(z.string()).optional(),
+  custom_headers: z.record(z.string(), z.string()).optional(),
 });
 
 const OutputSchema = z.object({
@@ -133,7 +133,7 @@ const DefaultsSchema = z.object({
     ]),
   // Domain-specific abbreviations the LLM might otherwise misinterpret
   // (e.g. "ADR" → "Adresse" instead of "Architecture Decision Record").
-  glossary: z.record(z.string()).default({}),
+  glossary: z.record(z.string(), z.string()).default({}),
 });
 
 const IdentitySchema = z.object({
@@ -145,7 +145,7 @@ const IdentitySchema = z.object({
 });
 
 export const ConfigSchema = z.object({
-  identity: IdentitySchema.default({ git_emails: [] }),
+  identity: IdentitySchema.prefault({}),
   sources: z
     .object({
       jira: JiraSchema.optional(),
@@ -161,8 +161,8 @@ export const ConfigSchema = z.object({
     })
     .default({}),
   llm: LlmSchema.optional(),
-  output: OutputSchema.default({ format: 'markdown', clipboard: false, save_to_cache: true }),
-  defaults: DefaultsSchema.default({ weekend_skip: true, timezone: 'Europe/Berlin' }),
+  output: OutputSchema.prefault({}),
+  defaults: DefaultsSchema.prefault({}),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
