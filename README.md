@@ -168,8 +168,8 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
      base_url: https://jira.firma.de
      pat_env: JIRA_PAT
      auth_method: bearer        # falls 401 zurückkommt, auf 'basic' umstellen
-     in_progress_jql: 'assignee = currentUser() AND project = SQDPO AND status = "In Bearbeitung"'
-     suggestions_jql: 'project = SQDPO AND status = "Ready for Dev" ORDER BY priority DESC'
+     in_progress_jql: 'assignee = currentUser() AND project = PROJ AND status = "In Bearbeitung"'
+     suggestions_jql: 'project = PROJ AND status = "Ready for Dev" ORDER BY priority DESC'
      # ↑ Wenn `in_progress_jql` 0 Treffer liefert, werden bis zu 10 Tickets aus
      #   `suggestions_jql` als Pickup-Vorschläge ausgegeben. Beide leer = Fallback aus.
    identity:

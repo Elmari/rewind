@@ -228,8 +228,8 @@ sources:
     base_url: https://jira.firma.de
     pat_env: JIRA_PAT
     auth_method: bearer        # bearer (default) | basic — switch to basic if your server rejects Bearer PATs
-    # in_progress_jql: 'assignee = currentUser() AND project = SQDPO AND status = "In Bearbeitung"'
-    # suggestions_jql: 'project = SQDPO AND status = "Ready for Dev" ORDER BY priority DESC'
+    # in_progress_jql: 'assignee = currentUser() AND project = PROJ AND status = "In Bearbeitung"'
+    # suggestions_jql: 'project = PROJ AND status = "Ready for Dev" ORDER BY priority DESC'
     # ↑ Wenn in_progress_jql 0 Treffer liefert, werden bis zu 10 Tickets aus
     #   suggestions_jql als Pickup-Vorschläge ausgegeben. Beide leer = Fallback aus.
 
