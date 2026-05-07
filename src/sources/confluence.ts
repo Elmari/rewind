@@ -33,8 +33,8 @@ export async function fetchConfluence(
   const until = format(range.until, 'yyyy-MM-dd');
 
   const userClause = user
-    ? `lastmodifier = "${user}"`
-    : 'lastmodifier = currentUser()';
+    ? `contributor = "${user}"`
+    : 'contributor = currentUser()';
   const spaceClause = cfg.spaces.length ? ` AND space in (${cfg.spaces.map((s) => `"${s}"`).join(',')})` : '';
   const cql = `${userClause} AND lastModified >= "${since}" AND lastModified <= "${until}"${spaceClause} AND type in (page, blogpost, comment)`;
 
@@ -63,10 +63,19 @@ export async function fetchConfluence(
     }
     
     if (!c.version) {
-      // If version is missing, it might be that 'expand=version' was ignored or the user 
+      // If version is missing, it might be that 'expand=version' was ignored or the user
       // has no permission to see history/versions.
       ctx.warn(`confluence: content ${c.id || '(no id)'} missing 'version' property`);
       continue;
+    }
+
+    // CQL `contributor` matches anyone who ever touched the page, so pages where the user
+    // appears in the history but somebody else made the latest edit slip through. Drop those
+    // by checking the latest version's author against the configured user identifier.
+    if (user) {
+      const by = c.version.by ?? {};
+      const matches = by.username === user || by.userKey === user || by.email === user;
+      if (!matches) continue;
     }
 
     const isCreated = c.version.number === 1;
