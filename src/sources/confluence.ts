@@ -33,8 +33,8 @@ export async function fetchConfluence(
   const until = format(range.until, 'yyyy-MM-dd');
 
   const userClause = user
-    ? `contributor = "${user}"`
-    : 'contributor = currentUser()';
+    ? `lastmodifier = "${user}"`
+    : 'lastmodifier = currentUser()';
   const spaceClause = cfg.spaces.length ? ` AND space in (${cfg.spaces.map((s) => `"${s}"`).join(',')})` : '';
   const cql = `${userClause} AND lastModified >= "${since}" AND lastModified <= "${until}"${spaceClause} AND type in (page, blogpost, comment)`;
 
