@@ -106,18 +106,18 @@ export async function fetchJira(
           source: 'jira',
           type: 'status-transition',
           timestamp: history.created,
-          title: `${issue.key}: ${statusItem.fromString} → ${statusItem.toString}${resSuffix}`,
+          title: `${issue.key} — ${issue.fields.summary}: ${statusItem.fromString} → ${statusItem.toString}${resSuffix}`,
           url: `${browseBase}/${issue.key}`,
-          details: { issue: issue.key, from: statusItem.fromString, to: statusItem.toString, resolution: res },
+          details: { issue: issue.key, summary: issue.fields.summary, from: statusItem.fromString, to: statusItem.toString, resolution: res },
         });
       } else if (resolutionItem) {
         activities.push({
           source: 'jira',
           type: 'status-transition',
           timestamp: history.created,
-          title: `${issue.key}: Lösungsweg -> ${resolutionItem.toString || 'Keiner'}`,
+          title: `${issue.key} — ${issue.fields.summary}: Lösungsweg -> ${resolutionItem.toString || 'Keiner'}`,
           url: `${browseBase}/${issue.key}`,
-          details: { issue: issue.key, resolution: resolutionItem.toString },
+          details: { issue: issue.key, summary: issue.fields.summary, resolution: resolutionItem.toString },
         });
       }
     }
@@ -134,9 +134,9 @@ export async function fetchJira(
           source: 'jira',
           type: 'worklog',
           timestamp: wl.started,
-          title: `${issue.key}: ${wl.timeSpent}${wl.comment ? ` — ${wl.comment.slice(0, 120)}` : ''}`,
+          title: `${issue.key} — ${issue.fields.summary}: ${wl.timeSpent}${wl.comment ? ` — ${wl.comment.slice(0, 120)}` : ''}`,
           url: `${browseBase}/${issue.key}`,
-          details: { issue: issue.key, seconds: wl.timeSpentSeconds },
+          details: { issue: issue.key, summary: issue.fields.summary, seconds: wl.timeSpentSeconds },
         });
       }
     } catch (err) {

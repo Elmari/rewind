@@ -13,16 +13,28 @@ export async function fetchGit(
 ): Promise<SourceResult> {
   const reposDir = expandHome(cfg.repos_dir);
   const repos = findRepos(reposDir, cfg.max_depth);
-  ctx.log(`git: scanning ${repos.length} repos under ${reposDir}`);
+  ctx.log(`git: scanning ${repos.length} repos under ${reposDir} (email filter: ${identityEmails.length ? identityEmails.join(',') : '(none — all authors)'})`);
 
   const activities: Activity[] = [];
+  let totalRawCommits = 0;
+  const seenEmails = new Set<string>();
   for (const repo of repos) {
     try {
-      const repoActivities = await fetchRepo(repo, range, identityEmails);
-      activities.push(...repoActivities);
+      const { matched, raw, emails } = await fetchRepo(repo, range, identityEmails);
+      activities.push(...matched);
+      totalRawCommits += raw;
+      emails.forEach((e) => seenEmails.add(e));
     } catch (err) {
       ctx.warn(`git: failed to read ${repo}`, err);
     }
+  }
+
+  if (identityEmails.length && totalRawCommits > 0 && activities.length === 0) {
+    ctx.warn(
+      `git: ${totalRawCommits} commits in range but 0 matched git_emails ${JSON.stringify(identityEmails)}; emails seen: ${JSON.stringify([...seenEmails])}`,
+    );
+  } else {
+    ctx.log(`git: ${activities.length}/${totalRawCommits} commits matched (emails seen: ${[...seenEmails].join(',') || '—'})`);
   }
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
@@ -57,24 +69,32 @@ function findRepos(root: string, maxDepth: number): string[] {
   return out;
 }
 
-async function fetchRepo(repoPath: string, range: DateRange, emails: string[]): Promise<Activity[]> {
+async function fetchRepo(
+  repoPath: string,
+  range: DateRange,
+  emails: string[],
+): Promise<{ matched: Activity[]; raw: number; emails: Set<string> }> {
   const git = simpleGit(repoPath);
   const since = range.since.toISOString();
   const until = range.until.toISOString();
 
   const args = ['log', `--since=${since}`, `--until=${until}`, '--all', '--pretty=format:%H%x1f%aI%x1f%ae%x1f%s'];
   const raw = await git.raw(args);
-  if (!raw.trim()) return [];
+  if (!raw.trim()) return { matched: [], raw: 0, emails: new Set() };
 
   const repoName = repoPath.split(/[\\/]/).pop() ?? repoPath;
   const ahead = await unpushedCommits(git);
 
-  const activities: Activity[] = [];
+  const matched: Activity[] = [];
+  const seenEmails = new Set<string>();
+  let rawCount = 0;
   for (const line of raw.split('\n')) {
     if (!line.trim()) continue;
     const [hash, isoDate, email, subject] = line.split('\x1f');
+    rawCount++;
+    seenEmails.add(email);
     if (emails.length > 0 && !emails.includes(email)) continue;
-    activities.push({
+    matched.push({
       source: 'git',
       type: 'commit',
       timestamp: isoDate,
@@ -87,7 +107,7 @@ async function fetchRepo(repoPath: string, range: DateRange, emails: string[]): 
       },
     });
   }
-  return activities;
+  return { matched, raw: rawCount, emails: seenEmails };
 }
 
 async function unpushedCommits(git: ReturnType<typeof simpleGit>): Promise<Set<string>> {

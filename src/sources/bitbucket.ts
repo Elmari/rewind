@@ -144,13 +144,14 @@ export async function fetchBitbucket(
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
-  const open = await fetchBitbucketOpen(cfg, headers, ctx);
+  const open = await fetchBitbucketOpen(cfg, headers, user, ctx);
   return { source: 'bitbucket', activities, open };
 }
 
 async function fetchBitbucketOpen(
   cfg: BitbucketConfig,
   headers: Record<string, string>,
+  user: string | undefined,
   ctx: FetchContext,
 ): Promise<OpenItem[]> {
   const ignored = new Set(cfg.ignored_authors.map((a) => a.toLowerCase()));
@@ -165,13 +166,23 @@ async function fetchBitbucketOpen(
         const authorSlug = pr.author.user.slug?.toLowerCase();
         const authorName = pr.author.user.name?.toLowerCase();
         if ((authorSlug && ignored.has(authorSlug)) || (authorName && ignored.has(authorName))) continue;
+
+        let myReviewStatus: string | undefined;
+        if (role === 'REVIEWER' && user) {
+          const me = pr.reviewers.find((r) => r.user.slug === user || r.user.name === user);
+          myReviewStatus = me?.status;
+          if (myReviewStatus === 'APPROVED') continue; // already approved → not on my todo
+        }
+
         const repoFull = `${pr.toRef.repository.project.key}/${pr.toRef.repository.slug}`;
+        const reviewStatusLabel =
+          myReviewStatus === 'NEEDS_WORK' ? 'needs work (mine)' : 'awaits my review';
         out.push({
           source: 'bitbucket',
           type: role === 'AUTHOR' ? 'open-pr-mine' : 'open-pr-review',
           title: `${repoFull} #${pr.id}: ${pr.title}`,
           url: pr.links.self?.[0]?.href,
-          status: role === 'AUTHOR' ? 'open' : 'awaits my review',
+          status: role === 'AUTHOR' ? 'open' : reviewStatusLabel,
           updated: new Date(pr.updatedDate).toISOString(),
           details: { repo: repoFull, prId: pr.id, author: pr.author.user.slug },
         });
