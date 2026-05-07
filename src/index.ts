@@ -2,14 +2,16 @@
 import './env.js';
 import { Command } from 'commander';
 import clipboard from 'clipboardy';
-import { loadConfig, writeSampleConfig, defaultConfigPath } from './config.js';
+import { loadConfig, writeSampleConfig, defaultConfigPath, readEnvSecret } from './config.js';
 import { resolveRange } from './range.js';
 import { ALL_SOURCES, runSources } from './sources/index.js';
 import { loginOutlook } from './sources/outlook.js';
 import { loginTeams } from './sources/teams.js';
+import { fetchJiraTitles } from './sources/jira.js';
 import { renderDoctorReport, runDoctor } from './doctor.js';
 import { renderMarkdown, renderMarkdownBody } from './format/markdown.js';
 import { renderTerminal, renderTerminalSummary } from './format/terminal.js';
+import { aggregateByTicket } from './format/aggregate.js';
 import { condenseForLlm } from './format/condense.js';
 import { buildPrompt } from './llm/prompt.js';
 import { summarize } from './llm/gemini.js';
@@ -181,7 +183,35 @@ async function runMain(opts: MainOpts): Promise<void> {
       console.error('No llm config — re-run with --no-llm or set llm in config.');
       process.exit(1);
     }
-    const condensed = condenseForLlm(results, cfg.defaults.stages);
+    const aggregate = aggregateByTicket(results, cfg.defaults.stages);
+
+    // Enrich missing ticket titles via a single Jira lookup
+    if (cfg.sources.jira?.enabled) {
+      const missing = aggregate.tickets.filter((t) => !t.summary).map((t) => t.key);
+      if (missing.length > 0) {
+        try {
+          const titles = await fetchJiraTitles(
+            cfg.sources.jira,
+            readEnvSecret(cfg.sources.jira.pat_env),
+            cfg.identity.jira_user ?? cfg.identity.atlassian_user,
+            missing,
+            ctx,
+          );
+          for (const t of aggregate.tickets) {
+            const hit = titles.get(t.key);
+            if (hit) {
+              t.summary = hit.summary;
+              if (hit.status && !t.status) t.status = hit.status;
+              if (hit.resolution && !t.resolution) t.resolution = hit.resolution;
+            }
+          }
+        } catch (err) {
+          ctx.warn('jira: title enrichment failed', err);
+        }
+      }
+    }
+
+    const condensed = condenseForLlm(aggregate, results);
     if (opts.debug) {
       process.stderr.write('\n=== AGGREGATOR OUTPUT (activities block) ===\n');
       process.stderr.write(condensed.activities || '(empty)');

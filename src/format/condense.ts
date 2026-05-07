@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
-import type { StageRule } from '../config.js';
 import type { SourceResult } from '../types.js';
-import { aggregateByTicket, renderAggregateForPrompt } from './aggregate.js';
+import type { AggregateResult } from './aggregate.js';
+import { renderAggregateForPrompt } from './aggregate.js';
 
 const MAX_OPEN_PER_SOURCE = 25;
 const MAX_SUGGESTIONS_PER_SOURCE = 10;
@@ -19,8 +19,7 @@ export interface CondensedInput {
   hasAgenda: boolean;
 }
 
-export function condenseForLlm(results: SourceResult[], stages: StageRule[]): CondensedInput {
-  const aggregate = aggregateByTicket(results, stages);
+export function condenseForLlm(aggregate: AggregateResult, results: SourceResult[]): CondensedInput {
   const activityText = renderAggregateForPrompt(aggregate);
   const hasActivities = aggregate.tickets.length > 0 || aggregate.misc.length > 0;
 

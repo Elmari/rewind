@@ -241,3 +241,39 @@ function matchesUser(author: { name?: string; key?: string; emailAddress?: strin
   if (!user) return true;
   return author.name === user || author.key === user || author.emailAddress === user;
 }
+
+/**
+ * Look up titles (summary fields) for a list of Jira keys in one JQL query.
+ * Used by the aggregator to fill ticket titles when only Bitbucket/git activity
+ * mentions a ticket but the user wasn't assignee/reporter/creator (so the main
+ * fetchJira query missed it).
+ */
+export async function fetchJiraTitles(
+  cfg: JiraConfig,
+  pat: string,
+  user: string | undefined,
+  keys: string[],
+  ctx: FetchContext,
+): Promise<Map<string, { summary: string; status?: string; resolution?: string }>> {
+  const out = new Map<string, { summary: string; status?: string; resolution?: string }>();
+  if (keys.length === 0) return out;
+  const authHeader = atlassianAuthHeader(cfg.auth_method, pat, user);
+  const jql = `key in (${keys.map((k) => `"${k}"`).join(',')})`;
+  ctx.log(`jira: title-lookup for ${keys.length} keys`);
+  try {
+    const search = await request<JiraSearchResponse>(`${cfg.base_url}/rest/api/2/search`, {
+      headers: { ...authHeader, accept: 'application/json' },
+      query: { jql, fields: 'summary,status,resolution', maxResults: keys.length },
+    });
+    for (const issue of search.issues) {
+      out.set(issue.key, {
+        summary: issue.fields.summary,
+        status: issue.fields.status?.name,
+        resolution: issue.fields.resolution?.name,
+      });
+    }
+  } catch (err) {
+    ctx.warn('jira: title-lookup failed', err);
+  }
+  return out;
+}
