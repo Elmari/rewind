@@ -221,7 +221,7 @@ async function runMain(opts: MainOpts): Promise<void> {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;
     } else {
-      const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed, opts.today);
+      const prompt = buildPrompt(range, cfg.llm.prompt_language, condensed, opts.today, cfg.defaults.glossary);
       if (opts.debug) {
         process.stderr.write('\n=== LLM USER PROMPT ===\n');
         process.stderr.write(prompt.userPrompt);

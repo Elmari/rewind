@@ -131,6 +131,9 @@ const DefaultsSchema = z.object({
       { match: 'master', label: 'ABN' },
       { match: 'main', label: 'ABN' },
     ]),
+  // Domain-specific abbreviations the LLM might otherwise misinterpret
+  // (e.g. "ADR" → "Adresse" instead of "Architecture Decision Record").
+  glossary: z.record(z.string()).default({}),
 });
 
 const IdentitySchema = z.object({
@@ -335,4 +338,10 @@ defaults:
     - { match: 'dev',       label: 'TST (Sammelroute)' }
     - { match: 'master',    label: 'ABN' }
     - { match: 'main',      label: 'ABN' }
+  # Domänen-Abkürzungen, die der LLM sonst falsch interpretiert.
+  # Beispiel: ohne Eintrag "ADR" deutet Gemini das oft als "Adresse".
+  glossary:
+    ADR: Architecture Decision Record
+    # SLA: Service Level Agreement
+    # POC: Proof of Concept
 `;

@@ -11,7 +11,27 @@ export function buildPrompt(
   language: 'de' | 'en',
   condensed: CondensedInput,
   today: boolean = false,
+  glossary: Record<string, string> = {},
 ): PromptResult {
+  const glossaryEntries = Object.entries(glossary);
+  const glossaryBlockDe = glossaryEntries.length
+    ? [
+        '',
+        '## Glossar (domänen-spezifische Abkürzungen)',
+        'Wenn diese Begriffe in Commit-Subjects, PR-Titeln oder Ticket-Summaries auftauchen, interpretiere sie GENAU so:',
+        ...glossaryEntries.map(([k, v]) => `- ${k} = ${v}`),
+        'Verwende den ausgeschriebenen Begriff im Output, nicht eine andere Bedeutung erfinden.',
+      ].join('\n')
+    : '';
+  const glossaryBlockEn = glossaryEntries.length
+    ? [
+        '',
+        '## Glossary (domain-specific abbreviations)',
+        'When these terms appear in commit subjects, PR titles, or ticket summaries, interpret them EXACTLY as listed:',
+        ...glossaryEntries.map(([k, v]) => `- ${k} = ${v}`),
+        'Use the expanded term in the output. Do not invent alternate meanings.',
+      ].join('\n')
+    : '';
   if (language === 'de') {
     const doneLabel = today ? 'Heute (bereits erledigt)' : 'Gestern';
     const planLabel = today ? 'Noch heute' : 'Heute';
@@ -69,6 +89,7 @@ export function buildPrompt(
         `- Kein Markdown-Heading. "${planLabel}" wird durch Leerzeile + "${planLabel}:" eingeleitet.`,
         '- Nur die Bullet-Listen. Keine Einleitung, kein Abschluss.',
         '',
+        glossaryBlockDe,
         '## Beispiel',
         '(Input: PROJ-1234 summary="Implementierung eines Caching-Layers für Suchanfragen mit Redis-Backend", hasNewCode=true, 3 Commits + pr-opened; PROJ-1199 summary="Login-Redirect-Bug nach SSO-Migration", mergeOnly=true, stages=[ABN])',
         '- PROJ-1234 (Caching-Layer Suche): 3 Commits + PR geöffnet, bereit zum Test.',
@@ -151,6 +172,7 @@ export function buildPrompt(
       `- No markdown headings. "${planLabelEn}" starts with a blank line and "${planLabelEn}:".`,
       '- Only bullets.',
       '',
+      glossaryBlockEn,
       '## Example',
       '(Input: PROJ-1234 summary="Implementing Redis-backed caching for search", hasNewCode=true 3 commits+PR; PROJ-1199 summary="Login-redirect bug after SSO migration", mergeOnly=true stages=[ABN])',
       '- PROJ-1234 (Search caching): 3 commits + PR opened, ready for test.',
