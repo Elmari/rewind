@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(npm install *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(git init *)",
+      "Bash(git remote *)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta remote add origin https://github.com/Elmari/siesta.git)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta remote -v)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta add -A)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta status --short)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta commit -m ' *)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta push)",
+      "Bash(git -C /c/Users/elias/IdeaProjects/siesta show --stat HEAD)"
     ]
   }
 }

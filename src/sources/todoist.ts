@@ -120,6 +120,11 @@ export async function fetchTodoist(
 
   activities.sort((a, b) => a.timestamp.localeCompare(b.timestamp));
 
+  const completedCount = activities.filter((a) => a.type === 'task-completed').length;
+  const createdCount = activities.filter((a) => a.type === 'task-created').length;
+  const sample = activities.slice(0, 3).map((a) => `[${a.type}] ${a.title} (taskId=${a.details?.taskId ?? a.details?.project_id ?? '?'})`).join(' | ');
+  ctx.log(`todoist: completed=${completedCount} created=${createdCount}${sample ? ` — sample: ${sample}` : ''}`);
+
   const open = await fetchTodoistOpen(cfg, headers, projectIds, ctx);
   return { source: 'todoist', activities, open };
 }
@@ -133,8 +138,9 @@ async function fetchTodoistOpen(
   try {
     const tasks = asArray<TodoistTask>(await request<unknown>(url(cfg, 'tasks'), { headers }));
     const projectFilter = projectIds.length ? new Set(projectIds) : null;
-    return tasks
-      .filter((t) => !projectFilter || projectFilter.has(t.project_id))
+    const filtered = tasks.filter((t) => !projectFilter || projectFilter.has(t.project_id));
+    ctx.log(`todoist: open tasks=${filtered.length} (raw=${tasks.length})${filtered.length ? ` — sample: ${filtered.slice(0, 3).map((t) => `${t.id}:${t.content.slice(0, 60)}`).join(' | ')}` : ''}`);
+    return filtered
       .map((t) => ({
         source: 'todoist' as const,
         type: 'open-task',

@@ -203,6 +203,8 @@ Jede Quelle braucht ihre eigenen Credentials. Below: wo du sie herkriegst, was i
 
 ### Bitbucket (Server / Data Center, on-prem)
 
+> **Hinweis zum Scope:** Die Bitbucket-Quelle erfasst ausschließlich Pull-Request-Aktivität (öffnen, mergen, Kommentare, Reviews). Direkte Commits ohne PR werden hier **nicht** erfasst — sie kommen über die `git`-Quelle aus deinen lokalen Repos (sofern dort `enabled: true`).
+
 1. PAT erstellen: oben rechts auf Avatar → **Manage account** → **Personal access tokens** → **Create**.
    - Permissions: mindestens **Repository read** und **Project read**. Die Dashboard-Endpoints brauchen kein write.
 2. `.env`:

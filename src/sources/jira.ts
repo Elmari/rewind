@@ -49,9 +49,9 @@ export async function fetchJira(
   const since = format(range.since, 'yyyy-MM-dd HH:mm');
   const until = format(range.until, 'yyyy-MM-dd HH:mm');
   const userClause = user
-    ? `(assignee = "${user}" OR reporter = "${user}")`
-    : '(assignee = currentUser() OR reporter = currentUser())';
-  const jql = `${userClause} AND updated >= "${since}" AND updated <= "${until}" ORDER BY updated DESC`;
+    ? `(assignee = "${user}" OR reporter = "${user}" OR creator = "${user}")`
+    : '(assignee = currentUser() OR reporter = currentUser() OR creator = currentUser())';
+  const jql = `${userClause} AND ((updated >= "${since}" AND updated <= "${until}") OR (created >= "${since}" AND created <= "${until}")) ORDER BY updated DESC`;
 
   ctx.log(`jira: searching with JQL: ${jql}`);
   const authHeader = atlassianAuthHeader(cfg.auth_method, pat, user);
