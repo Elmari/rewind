@@ -85,6 +85,8 @@ export async function fetchJira(
       title: `${issue.key}: ${issue.fields.summary}${resLabel}`,
       url: `${browseBase}/${issue.key}`,
       details: {
+        issue: issue.key,
+        summary: issue.fields.summary,
         status: issue.fields.status.name,
         project: issue.fields.project.key,
         ...(resolution ? { resolution } : {}),

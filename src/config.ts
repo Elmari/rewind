@@ -113,9 +113,24 @@ const OutputSchema = z.object({
   save_to_cache: z.boolean().default(true),
 });
 
+const StageRuleSchema = z.object({
+  match: z.string(),    // exact branch name or prefix glob like "feature/*"
+  label: z.string(),    // human-readable stage, e.g. "TST (feature route)"
+});
+
 const DefaultsSchema = z.object({
   weekend_skip: z.boolean().default(true),
   timezone: z.string().default('Europe/Berlin'),
+  stages: z
+    .array(StageRuleSchema)
+    .default([
+      { match: 'feature/*', label: 'TST (Feature-Route)' },
+      { match: 'bugfix/*', label: 'TST (Feature-Route)' },
+      { match: 'develop', label: 'TST (Sammelroute)' },
+      { match: 'dev', label: 'TST (Sammelroute)' },
+      { match: 'master', label: 'ABN' },
+      { match: 'main', label: 'ABN' },
+    ]),
 });
 
 const IdentitySchema = z.object({
@@ -159,6 +174,7 @@ export type TodoistConfig = z.infer<typeof TodoistSchema>;
 export type OutlookConfig = z.infer<typeof OutlookSchema>;
 export type TeamsConfig = z.infer<typeof TeamsSchema>;
 export type LlmConfig = z.infer<typeof LlmSchema>;
+export type StageRule = z.infer<typeof StageRuleSchema>;
 
 export function defaultConfigPath(): string {
   if (process.env.REWIND_CONFIG) return process.env.REWIND_CONFIG;
@@ -309,4 +325,14 @@ output:
 defaults:
   weekend_skip: true
   timezone: Europe/Berlin
+  # Branch -> Deployment-Stage mapping (Reihenfolge wichtig: spezifischer zuerst).
+  # Wird vom Aggregator genutzt um Merge-Targets in Stage-Promotionen zu übersetzen.
+  # match: exakter Branch-Name oder Prefix-Glob "foo/*". label: was im Output erscheint.
+  stages:
+    - { match: 'feature/*', label: 'TST (Feature-Route)' }
+    - { match: 'bugfix/*',  label: 'TST (Feature-Route)' }
+    - { match: 'develop',   label: 'TST (Sammelroute)' }
+    - { match: 'dev',       label: 'TST (Sammelroute)' }
+    - { match: 'master',    label: 'ABN' }
+    - { match: 'main',      label: 'ABN' }
 `;

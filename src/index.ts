@@ -163,7 +163,7 @@ async function runMain(opts: MainOpts): Promise<void> {
       console.error('No llm config — re-run with --no-llm or set llm in config.');
       process.exit(1);
     }
-    const condensed = condenseForLlm(results);
+    const condensed = condenseForLlm(results, cfg.defaults.stages);
     if (!condensed.hasActivities && !condensed.hasOpen && !condensed.hasAgenda) {
       clipboardText = `# rewind — ${range.label}\n\n_(keine Aktivitäten gefunden)_\n`;
       terminalText = clipboardText;

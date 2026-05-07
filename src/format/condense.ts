@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
+import type { StageRule } from '../config.js';
 import type { SourceResult } from '../types.js';
+import { aggregateByTicket, renderAggregateForPrompt } from './aggregate.js';
 
-const MAX_PER_SOURCE = 50;
 const MAX_OPEN_PER_SOURCE = 25;
 const MAX_SUGGESTIONS_PER_SOURCE = 10;
 const MAX_AGENDA_PER_SOURCE = 25;
@@ -18,22 +19,10 @@ export interface CondensedInput {
   hasAgenda: boolean;
 }
 
-export function condenseForLlm(results: SourceResult[]): CondensedInput {
-  const activityBlocks: string[] = [];
-  for (const r of results) {
-    if (r.activities.length === 0) continue;
-    const lines: string[] = [];
-    lines.push(`## ${r.source}`);
-    for (const a of r.activities.slice(0, MAX_PER_SOURCE)) {
-      const time = format(new Date(a.timestamp), 'HH:mm');
-      const title = a.title.length > MAX_TITLE_LEN ? a.title.slice(0, MAX_TITLE_LEN) + '…' : a.title;
-      lines.push(`- ${time} [${a.type}] ${title}${detailSuffix(a.details)}`);
-    }
-    if (r.activities.length > MAX_PER_SOURCE) {
-      lines.push(`- (… ${r.activities.length - MAX_PER_SOURCE} weitere ${r.source}-Einträge ausgelassen)`);
-    }
-    activityBlocks.push(lines.join('\n'));
-  }
+export function condenseForLlm(results: SourceResult[], stages: StageRule[]): CondensedInput {
+  const aggregate = aggregateByTicket(results, stages);
+  const activityText = renderAggregateForPrompt(aggregate);
+  const hasActivities = aggregate.tickets.length > 0 || aggregate.misc.length > 0;
 
   const openBlocks: string[] = [];
   for (const r of results) {
@@ -88,26 +77,13 @@ export function condenseForLlm(results: SourceResult[]): CondensedInput {
   }
 
   return {
-    activities: activityBlocks.join('\n\n'),
+    activities: activityText,
     openItems: openBlocks.join('\n\n'),
     suggestions: suggestionBlocks.join('\n\n'),
     agenda: agendaBlocks.join('\n\n'),
-    hasActivities: activityBlocks.length > 0,
+    hasActivities,
     hasOpen: openBlocks.length > 0,
     hasSuggestions: suggestionBlocks.length > 0,
     hasAgenda: agendaBlocks.length > 0,
   };
-}
-
-function detailSuffix(details: Record<string, unknown> | undefined): string {
-  if (!details) return '';
-  const parts: string[] = [];
-  if (typeof details.repo === 'string') parts.push(`repo=${details.repo}`);
-  if (typeof details.status === 'string') parts.push(`status=${details.status}`);
-  if (typeof details.resolution === 'string') parts.push(`resolution=${details.resolution}`);
-  if (typeof details.project === 'string') parts.push(`project=${details.project}`);
-  if (typeof details.from === 'string') parts.push(`from=${details.from}`);
-  if (typeof details.to === 'string') parts.push(`to=${details.to}`);
-  if (details.unpushed === true) parts.push('unpushed');
-  return parts.length ? `  (${parts.join(', ')})` : '';
 }
