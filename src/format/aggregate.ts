@@ -119,6 +119,12 @@ export function aggregateByTicket(results: SourceResult[], stages: StageRule[]):
 
   // derive booleans + title fallback
   for (const t of tickets.values()) {
+    // hasNewCode / fallback titles consider ALL commits (pushed or not) — a pushed
+    // commit is still evidence of new code. Drop pushed commits from the
+    // local-commits list AFTER deriving — but only when a PR exists for the
+    // same ticket, since the PR is the canonical representation and the commit
+    // would otherwise show up twice. With no PR, the commit is the only signal
+    // and must stay.
     t.hasNewCode = t.localCommits.length > 0 || t.prsOpened.length > 0;
     const stageSet = new Set<string>();
     for (const m of t.prsMerged) {
@@ -132,6 +138,10 @@ export function aggregateByTicket(results: SourceResult[], stages: StageRule[]):
         t.localCommits[0]?.subject ||
         t.prsMerged[0]?.title;
       if (fallback) t.summary = stripKey(fallback, t.key);
+    }
+    const hasPrActivity = t.prsOpened.length > 0 || t.prsMerged.length > 0;
+    if (hasPrActivity) {
+      t.localCommits = t.localCommits.filter((c) => c.unpushed);
     }
   }
 
@@ -268,10 +278,16 @@ function handleGitCommit(
   });
 }
 
+const MAX_PROMPT_TITLE_LEN = 100;
+
+function capTitle(s: string): string {
+  return s.length > MAX_PROMPT_TITLE_LEN ? s.slice(0, MAX_PROMPT_TITLE_LEN - 1).trimEnd() + '…' : s;
+}
+
 export function renderAggregateForPrompt(agg: AggregateResult): string {
   const lines: string[] = [];
   for (const t of agg.tickets) {
-    lines.push(`### ${t.key}${t.summary ? ` — ${t.summary}` : ''}`);
+    lines.push(`### ${t.key}${t.summary ? ` — ${capTitle(t.summary)}` : ''}`);
     if (t.status) lines.push(`  status: ${t.status}${t.resolution ? ` (${t.resolution})` : ''}`);
     if (t.localCommits.length) {
       lines.push(`  local-commits (${t.localCommits.length}):`);

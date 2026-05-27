@@ -50,7 +50,7 @@ test('aggregator: pure dev→master merge classifies as mergeOnly + stage promot
   assert.deepEqual(t.stagesReachedToday, ['ABN']);
 });
 
-test('aggregator: feature PR + commits → hasNewCode true, not mergeOnly', () => {
+test('aggregator: feature PR + pushed commit → commit deduped (PR is canonical)', () => {
   const results: SourceResult[] = [
     {
       source: 'bitbucket',
@@ -72,7 +72,7 @@ test('aggregator: feature PR + commits → hasNewCode true, not mergeOnly', () =
           type: 'commit',
           timestamp: '2026-05-06T08:00:00Z',
           title: 'PROJ-99: add cache layer',
-          details: { repo: 'rewind', hash: 'abc12345', email: 'me@x' },
+          details: { repo: 'rewind', hash: 'abc12345', email: 'me@x', unpushed: false },
         },
       ],
     },
@@ -80,10 +80,65 @@ test('aggregator: feature PR + commits → hasNewCode true, not mergeOnly', () =
   const agg = aggregateByTicket(results, stages);
   const t = agg.tickets.find((x) => x.key === 'PROJ-99');
   assert.ok(t);
-  assert.equal(t.hasNewCode, true);
+  assert.equal(t.hasNewCode, true, 'pushed commit still counts toward hasNewCode');
   assert.equal(t.mergeOnly, false);
-  assert.equal(t.localCommits.length, 1);
+  assert.equal(t.localCommits.length, 0, 'pushed commit is dropped when a PR exists for the same ticket');
   assert.equal(t.prsOpened.length, 1);
+});
+
+test('aggregator: feature PR + unpushed commit → unpushed commit is kept', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'bitbucket',
+      activities: [
+        {
+          source: 'bitbucket',
+          type: 'pr-opened',
+          timestamp: '2026-05-06T09:00:00Z',
+          title: 'PROJ/repo #43: PROJ-99 add cache [feature/PROJ-99 -> develop]',
+          details: { repo: 'PROJ/repo', prId: 43, from: 'feature/PROJ-99', to: 'develop' },
+        },
+      ],
+    },
+    {
+      source: 'git',
+      activities: [
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T10:00:00Z',
+          title: 'PROJ-99: tweak cache TTL',
+          details: { repo: 'rewind', hash: 'def67890', email: 'me@x', unpushed: true },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets.find((x) => x.key === 'PROJ-99');
+  assert.ok(t);
+  assert.equal(t.localCommits.length, 1, 'unpushed commit must remain — it is not yet on the PR');
+  assert.equal(t.localCommits[0].unpushed, true);
+});
+
+test('aggregator: pushed commit without any PR is kept (only signal for that ticket)', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'git',
+      activities: [
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T08:00:00Z',
+          title: 'PROJ-42: hotfix typo',
+          details: { repo: 'rewind', hash: 'ccc11111', email: 'me@x', unpushed: false },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets.find((x) => x.key === 'PROJ-42');
+  assert.ok(t);
+  assert.equal(t.localCommits.length, 1, 'no PR exists → commit is not duplicated and must stay');
 });
 
 test('aggregator: jira issue-touched seeds summary + status', () => {
