@@ -143,6 +143,13 @@ export function aggregateByTicket(results: SourceResult[], stages: StageRule[]):
     if (hasPrActivity) {
       t.localCommits = t.localCommits.filter((c) => c.unpushed);
     }
+    // Status/resolution come from the latest user-initiated transition only.
+    // Walk the list chronologically and take the most recent non-empty values.
+    const sortedTransitions = [...t.statusTransitions].sort((a, b) => a.ts.localeCompare(b.ts));
+    for (const tr of sortedTransitions) {
+      if (tr.to) t.status = tr.to;
+      if (tr.resolution) t.resolution = tr.resolution;
+    }
   }
 
   // stable order: tickets sorted by key, misc by timestamp
@@ -164,8 +171,10 @@ function handleJira(a: Activity, ensure: (k: string) => TicketAggregate): void {
       const m = a.title.match(/^[A-Z][A-Z0-9_]+-\d+:\s*(.+?)(?:\s*\[[^\]]+\])?$/);
       if (m) t.summary = m[1];
     }
-    if (typeof a.details?.status === 'string') t.status = a.details.status;
-    if (typeof a.details?.resolution === 'string') t.resolution = a.details.resolution;
+    // Intentionally do NOT seed t.status / t.resolution from issue-touched —
+    // that reflects the ticket's current state regardless of who set it.
+    // Only the user's own status-transitions (already author-filtered upstream
+    // in sources/jira.ts) should influence what gets reported.
   } else if (a.type === 'status-transition') {
     t.statusTransitions.push({
       from: a.details?.from as string | undefined,

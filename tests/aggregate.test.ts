@@ -141,7 +141,7 @@ test('aggregator: pushed commit without any PR is kept (only signal for that tic
   assert.equal(t.localCommits.length, 1, 'no PR exists → commit is not duplicated and must stay');
 });
 
-test('aggregator: jira issue-touched seeds summary + status', () => {
+test('aggregator: jira issue-touched seeds summary but NOT status (status reflects current state, not author)', () => {
   const results: SourceResult[] = [
     {
       source: 'jira',
@@ -151,7 +151,7 @@ test('aggregator: jira issue-touched seeds summary + status', () => {
           type: 'issue-touched',
           timestamp: '2026-05-06T07:00:00Z',
           title: 'PROJ-7: Login refactor',
-          details: { issue: 'PROJ-7', summary: 'Login refactor', status: 'In Prüfung' },
+          details: { issue: 'PROJ-7', summary: 'Login refactor', status: 'In Prüfung', resolution: 'Done' },
         },
       ],
     },
@@ -159,7 +159,82 @@ test('aggregator: jira issue-touched seeds summary + status', () => {
   const agg = aggregateByTicket(results, stages);
   const t = agg.tickets[0];
   assert.equal(t.summary, 'Login refactor');
-  assert.equal(t.status, 'In Prüfung');
+  assert.equal(t.status, undefined, 'status must not be inferred from issue-touched (could be set by anyone)');
+  assert.equal(t.resolution, undefined, 'resolution must not be inferred from issue-touched');
+});
+
+test('aggregator: status/resolution come from the latest user status-transition', () => {
+  const results: SourceResult[] = [
+    {
+      source: 'jira',
+      activities: [
+        // current state reported via issue-touched (someone else may have set it)
+        {
+          source: 'jira',
+          type: 'issue-touched',
+          timestamp: '2026-05-06T07:00:00Z',
+          title: 'PROJ-7: Login refactor',
+          details: { issue: 'PROJ-7', summary: 'Login refactor', status: 'Geschlossen', resolution: 'Erledigt' },
+        },
+        // user-initiated transitions, in chronological order — latest wins
+        {
+          source: 'jira',
+          type: 'status-transition',
+          timestamp: '2026-05-06T09:00:00Z',
+          title: 'PROJ-7 — Login refactor: Offen → In Bearbeitung',
+          details: { issue: 'PROJ-7', from: 'Offen', to: 'In Bearbeitung' },
+        },
+        {
+          source: 'jira',
+          type: 'status-transition',
+          timestamp: '2026-05-06T15:00:00Z',
+          title: 'PROJ-7 — Login refactor: In Bearbeitung → In Prüfung',
+          details: { issue: 'PROJ-7', from: 'In Bearbeitung', to: 'In Prüfung' },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets[0];
+  assert.equal(t.status, 'In Prüfung', 'latest user transition wins, not the ticket\'s current "Geschlossen" state');
+  assert.equal(t.resolution, undefined, 'no user transition carried a resolution → resolution stays empty');
+});
+
+test('aggregator: ticket closed by someone else surfaces no resolution', () => {
+  // Realistic case: I committed code, opened a PR; later a PM closed the ticket as "Duplikat".
+  // The closure was not my action — must not appear as if I closed it.
+  const results: SourceResult[] = [
+    {
+      source: 'jira',
+      activities: [
+        {
+          source: 'jira',
+          type: 'issue-touched',
+          timestamp: '2026-05-06T18:00:00Z',
+          title: 'PROJ-77: Migrate user table',
+          details: { issue: 'PROJ-77', summary: 'Migrate user table', status: 'Geschlossen', resolution: 'Duplikat' },
+        },
+      ],
+    },
+    {
+      source: 'git',
+      activities: [
+        {
+          source: 'git',
+          type: 'commit',
+          timestamp: '2026-05-06T08:00:00Z',
+          title: 'PROJ-77: start migration script',
+          details: { repo: 'rewind', hash: 'aaa', email: 'me@x', unpushed: true },
+        },
+      ],
+    },
+  ];
+  const agg = aggregateByTicket(results, stages);
+  const t = agg.tickets.find((x) => x.key === 'PROJ-77');
+  assert.ok(t);
+  assert.equal(t.status, undefined);
+  assert.equal(t.resolution, undefined);
+  assert.equal(t.localCommits.length, 1, 'own commit must still be reported');
 });
 
 test('aggregator: title falls back to PR title when no Jira summary', () => {
